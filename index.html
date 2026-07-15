@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coffee Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    /* Base tokens — overridden wholesale by JS applyTheme() */
+    :root {
+      --bg:           #FAF7F4;
+      --surface:      #FFFFFF;
+      --surface2:     #F4EDE6;
+      --border:       #E8DDD3;
+      --text-primary: #1C1410;
+      --text-sec:     #6B5A4E;
+      --text-muted:   #A08878;
+      --accent:       #7C4A2D;
+      --accent-bg:    #EDE0D6;
+      --chart-bar:    rgba(124,74,45,0.85);
+      --chart-hover:  rgba(111,59,30,1);
+      --grid:         #EFE5DC;
+      --tooltip-bg:   #FFFFFF;
+      --tooltip-bd:   #E8DDD3;
+      --shadow:       0 1px 3px rgba(0,0,0,.07), 0 4px 12px rgba(0,0,0,.05);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* Smooth colour transitions on layout elements only (not buttons) */
+    body, header,
+    .hero-tile, .card, .chart-card, .log-item, .bd-item,
+    .log-count-pill, .hero-value, .theme-badge {
+      transition: background-color 0.5s ease, border-color 0.5s ease,
+                  color 0.4s ease, box-shadow 0.5s ease;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── Header ───────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .header-brand { display: flex; align-items: center; gap: 10px; }
+    .header-brand .logo { font-size: 1.4rem; }
+    .header-brand h1 { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.02em; }
+    .header-brand .date { font-size: 0.75rem; color: var(--text-muted); margin-top: 1px; }
+
+    .theme-badge {
+      background: var(--accent-bg);
+      color: var(--accent);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 13px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+    }
+
+    /* ── Main layout ──────────────────────────────────── */
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── Hero tiles ───────────────────────────────────── */
+    .hero-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .hero-tile {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+    .hero-value {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      color: var(--accent);
+      line-height: 1;
+    }
+    .hero-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+    .safe-indicator {
+      font-size: 0.65rem;
+      margin-top: 3px;
+      font-weight: 600;
+    }
+
+    /* ── Card ─────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+    .section-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+
+    /* ── Coffee selector ──────────────────────────────── */
+    .coffee-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    @media (min-width: 540px)  { .coffee-grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (min-width: 720px)  { .coffee-grid { grid-template-columns: repeat(7, 1fr); } }
+
+    .coffee-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      padding: 14px 6px 12px;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.12s, background 0.12s, border-color 0.12s;
+      color: var(--text-primary);
+    }
+    .coffee-btn:hover {
+      background: var(--accent-bg);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+    .coffee-btn:active { transform: translateY(0) scale(0.97); }
+    .coffee-btn.just-added { background: var(--accent-bg); border-color: var(--accent); }
+    .coffee-btn .cb-icon { font-size: 1.6rem; line-height: 1; }
+    .coffee-btn .cb-name { font-size: 0.67rem; font-weight: 600; text-align: center; line-height: 1.25; }
+    .coffee-btn .cb-mg   { font-size: 0.62rem; color: var(--text-muted); }
+
+    /* ── Today's log ──────────────────────────────────── */
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .log-count-pill {
+      background: var(--accent-bg);
+      color: var(--accent);
+      font-size: 0.7rem;
+      font-weight: 600;
+      border-radius: 20px;
+      padding: 3px 9px;
+    }
+    .log-list { display: flex; flex-direction: column; gap: 7px; }
+    .log-empty {
+      text-align: center;
+      padding: 24px 0;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+    }
+    .log-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      background: var(--surface2);
+      border-radius: 8px;
+      animation: pop-in 0.18s ease;
+    }
+    @keyframes pop-in {
+      from { opacity: 0; transform: translateY(-3px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .li-time { font-size: 0.72rem; color: var(--text-muted); min-width: 40px; font-variant-numeric: tabular-nums; }
+    .li-dot  { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+    .li-name { flex: 1; font-size: 0.85rem; font-weight: 500; }
+    .li-mg   { font-size: 0.7rem; color: var(--text-muted); }
+    .li-del  {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 0.75rem;
+      padding: 3px 5px; border-radius: 4px;
+      opacity: 0; transition: opacity 0.12s, color 0.12s; line-height: 1;
+    }
+    .log-item:hover .li-del { opacity: 1; }
+    .li-del:hover { color: #C0392B !important; }
+
+    /* ── Charts ───────────────────────────────────────── */
+    .charts-grid { display: grid; gap: 16px; }
+    @media (min-width: 640px) { .charts-grid { grid-template-columns: 1fr 1fr; } }
+
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 18px 14px;
+      box-shadow: var(--shadow);
+    }
+    .chart-card.wide { grid-column: 1 / -1; }
+    .chart-title { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+    .chart-sub   { font-size: 0.75rem; color: var(--text-sec); margin-top: 2px; margin-bottom: 14px; }
+    .chart-wrap  { position: relative; height: 170px; }
+    .chart-card.wide .chart-wrap { height: 190px; }
+
+    /* ── Breakdown ────────────────────────────────────── */
+    .breakdown-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    @media (min-width: 540px) { .breakdown-grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (min-width: 720px) { .breakdown-grid { grid-template-columns: repeat(5, 1fr); } }
+    .bd-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 10px; background: var(--surface2); border-radius: 8px;
+    }
+    .bd-dot   { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+    .bd-name  { flex: 1; font-size: 0.78rem; font-weight: 500; }
+    .bd-count { font-size: 0.78rem; font-weight: 700; color: var(--accent); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-brand">
+    <span class="logo">☕</span>
+    <div>
+      <h1>Coffee Tracker</h1>
+      <div class="date" id="hdr-date"></div>
+    </div>
+  </div>
+  <span class="theme-badge" id="theme-badge">Serene</span>
+</header>
+
+<main>
+
+  <div class="hero-row">
+    <div class="hero-tile">
+      <div class="hero-value" id="h-cups">0</div>
+      <div class="hero-label">Today's cups</div>
+    </div>
+    <div class="hero-tile">
+      <div class="hero-value" id="h-caf">0mg</div>
+      <div class="hero-label">Caffeine today</div>
+      <div class="safe-indicator" id="h-safe"></div>
+    </div>
+    <div class="hero-tile">
+      <div class="hero-value" id="h-avg">0.0</div>
+      <div class="hero-label">7-day avg / day</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-label">Log a coffee</div>
+    <div class="coffee-grid" id="coffee-grid"></div>
+  </div>
+
+  <div class="card">
+    <div class="log-header">
+      <div class="section-label" style="margin-bottom:0">Today's log</div>
+      <span class="log-count-pill" id="log-pill">0 cups</span>
+    </div>
+    <div class="log-list" id="log-list"></div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card wide">
+      <div class="chart-title">Coffees per day</div>
+      <div class="chart-sub">Last 14 days</div>
+      <div class="chart-wrap"><canvas id="ch-day"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Coffees by hour</div>
+      <div class="chart-sub">All-time pattern</div>
+      <div class="chart-wrap"><canvas id="ch-hour"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Caffeine per day</div>
+      <div class="chart-sub">Last 14 days · mg</div>
+      <div class="chart-wrap"><canvas id="ch-caf"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-label">All-time by type</div>
+    <div class="breakdown-grid" id="breakdown"></div>
+  </div>
+
+</main>
+
+<script>
+// ── Coffee definitions ────────────────────────────────────────────────────────
+const COFFEES = [
+  { id: 'espresso',          name: 'Espresso',         caffeine: 63,  icon: '☕' },
+  { id: 'espresso_mac',      name: 'Espresso Mac.',    caffeine: 63,  icon: '☕' },
+  { id: 'doppio',            name: 'Doppio',            caffeine: 128, icon: '☕' },
+  { id: 'lungo',             name: 'Lungo',             caffeine: 60,  icon: '☕' },
+  { id: 'americano',         name: 'Americano',         caffeine: 95,  icon: '☕' },
+  { id: 'cappuccino',        name: 'Cappuccino',        caffeine: 75,  icon: '☕' },
+  { id: 'flat_white',        name: 'Flat White',        caffeine: 130, icon: '☕' },
+  { id: 'latte',             name: 'Latte',             caffeine: 75,  icon: '🥛' },
+  { id: 'latte_macchiato',   name: 'Latte Macchiato',   caffeine: 75,  icon: '🥛' },
+  { id: 'affogato',          name: 'Affogato',          caffeine: 63,  icon: '🍨' },
+  { id: 'frappuccino',       name: 'Frappuccino',       caffeine: 95,  icon: '🧋' },
+  { id: 'chocochino',        name: 'Chocochino',        caffeine: 30,  icon: '🍫' },
+  { id: 'hot_chocolate',     name: 'Hot Chocolate',     caffeine: 25,  icon: '🍫' },
+];
+
+// ── Caffeine-driven themes ────────────────────────────────────────────────────
+// Each threshold activates when today's caffeine reaches that value (mg).
+const CAFFEINE_THEMES = [
+  {
+    threshold: 0, label: 'Serene',
+    vars: {
+      '--bg': '#F2F6FA', '--surface': '#FFFFFF', '--surface2': '#E5EEF5',
+      '--border': '#CCDEEa', '--text-primary': '#182530', '--text-sec': '#426278',
+      '--text-muted': '#7AA0B4', '--accent': '#2A7FA8', '--accent-bg': '#D0E8F5',
+      '--chart-bar': 'rgba(42,127,168,0.85)', '--chart-hover': 'rgba(25,103,140,1)',
+      '--grid': '#DDE9F2', '--tooltip-bg': '#FFFFFF', '--tooltip-bd': '#CCDEEa',
+      '--shadow': '0 1px 3px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.04)',
+    },
+  },
+  {
+    threshold: 100, label: 'Normal',
+    vars: {
+      '--bg': '#FAF7F4', '--surface': '#FFFFFF', '--surface2': '#F4EDE6',
+      '--border': '#E8DDD3', '--text-primary': '#1C1410', '--text-sec': '#6B5A4E',
+      '--text-muted': '#A08878', '--accent': '#7C4A2D', '--accent-bg': '#EDE0D6',
+      '--chart-bar': 'rgba(124,74,45,0.85)', '--chart-hover': 'rgba(111,59,30,1)',
+      '--grid': '#EFE5DC', '--tooltip-bg': '#FFFFFF', '--tooltip-bd': '#E8DDD3',
+      '--shadow': '0 1px 3px rgba(0,0,0,.07), 0 4px 12px rgba(0,0,0,.05)',
+    },
+  },
+  {
+    threshold: 300, label: '⚠ Approaching',
+    vars: {
+      '--bg': '#FDFAF0', '--surface': '#FFFFFF', '--surface2': '#FBF3D5',
+      '--border': '#F0E0A0', '--text-primary': '#251A00', '--text-sec': '#806610',
+      '--text-muted': '#B09040', '--accent': '#C49008', '--accent-bg': '#FAF0CC',
+      '--chart-bar': 'rgba(196,144,8,0.85)', '--chart-hover': 'rgba(168,118,0,1)',
+      '--grid': '#F5EAC0', '--tooltip-bg': '#FEFEF8', '--tooltip-bd': '#F0E0A0',
+      '--shadow': '0 1px 3px rgba(100,80,0,.09), 0 4px 12px rgba(100,80,0,.07)',
+    },
+  },
+  {
+    threshold: 400, label: '🚨 Critical',
+    vars: {
+      '--bg': '#FDF5F5', '--surface': '#FFFFFF', '--surface2': '#FAE6E6',
+      '--border': '#F0BCBC', '--text-primary': '#280808', '--text-sec': '#903030',
+      '--text-muted': '#B07070', '--accent': '#C0392B', '--accent-bg': '#FAD2D2',
+      '--chart-bar': 'rgba(192,57,43,0.85)', '--chart-hover': 'rgba(165,38,28,1)',
+      '--grid': '#F5D4D4', '--tooltip-bg': '#FFF8F8', '--tooltip-bd': '#F0BCBC',
+      '--shadow': '0 1px 3px rgba(150,0,0,.1), 0 4px 12px rgba(150,0,0,.08)',
+    },
+  },
+  {
+    threshold: 500, label: '🔥 Overdrive',
+    vars: {
+      '--bg': '#FDF3EE', '--surface': '#FFFFFF', '--surface2': '#FAE6DA',
+      '--border': '#F0C4A0', '--text-primary': '#2A0E00', '--text-sec': '#904020',
+      '--text-muted': '#B07050', '--accent': '#D44E0A', '--accent-bg': '#FAD4BC',
+      '--chart-bar': 'rgba(212,78,10,0.85)', '--chart-hover': 'rgba(185,58,0,1)',
+      '--grid': '#F5DCCC', '--tooltip-bg': '#FFFAF8', '--tooltip-bd': '#F0C4A0',
+      '--shadow': '0 1px 3px rgba(150,50,0,.1), 0 4px 12px rgba(150,50,0,.08)',
+    },
+  },
+  {
+    threshold: 600, label: '⚡ Chaos',
+    vars: {
+      '--bg': '#F8F0FF', '--surface': '#FFFFFF', '--surface2': '#F2E0FF',
+      '--border': '#DDBAF8', '--text-primary': '#1A0030', '--text-sec': '#6E2AAE',
+      '--text-muted': '#9A70C0', '--accent': '#7B2FBE', '--accent-bg': '#EACCFF',
+      '--chart-bar': 'rgba(123,47,190,0.85)', '--chart-hover': 'rgba(100,32,165,1)',
+      '--grid': '#EDD8FF', '--tooltip-bg': '#FDF8FF', '--tooltip-bd': '#DDBAF8',
+      '--shadow': '0 1px 3px rgba(80,0,150,.1), 0 4px 12px rgba(80,0,150,.08)',
+    },
+  },
+  {
+    threshold: 700, label: '🌊 Wired',
+    vars: {
+      '--bg': '#EFF6FF', '--surface': '#FFFFFF', '--surface2': '#DCEEFF',
+      '--border': '#AACCF0', '--text-primary': '#001428', '--text-sec': '#2050A0',
+      '--text-muted': '#6090C0', '--accent': '#1A6FC4', '--accent-bg': '#C8E0FA',
+      '--chart-bar': 'rgba(26,111,196,0.85)', '--chart-hover': 'rgba(14,92,170,1)',
+      '--grid': '#C8DCF0', '--tooltip-bg': '#F8FBFF', '--tooltip-bd': '#AACCF0',
+      '--shadow': '0 1px 3px rgba(0,50,150,.1), 0 4px 12px rgba(0,50,150,.08)',
+    },
+  },
+  {
+    threshold: 800, label: '☢ Toxic',
+    vars: {
+      '--bg': '#F0FDF4', '--surface': '#FFFFFF', '--surface2': '#DAFCE7',
+      '--border': '#9CDDB0', '--text-primary': '#001A08', '--text-sec': '#287040',
+      '--text-muted': '#60A070', '--accent': '#16803C', '--accent-bg': '#BCEED0',
+      '--chart-bar': 'rgba(22,128,60,0.85)', '--chart-hover': 'rgba(13,105,46,1)',
+      '--grid': '#BEEACF', '--tooltip-bg': '#F8FFF9', '--tooltip-bd': '#9CDDB0',
+      '--shadow': '0 1px 3px rgba(0,100,30,.1), 0 4px 12px rgba(0,100,30,.08)',
+    },
+  },
+  {
+    threshold: 900, label: '💀 Inferno',
+    vars: {
+      '--bg': '#FFF5F0', '--surface': '#FFFFFF', '--surface2': '#FFE4D8',
+      '--border': '#FFA888', '--text-primary': '#2A0600', '--text-sec': '#A03010',
+      '--text-muted': '#C07050', '--accent': '#E03000', '--accent-bg': '#FFC8B0',
+      '--chart-bar': 'rgba(224,48,0,0.85)', '--chart-hover': 'rgba(198,28,0,1)',
+      '--grid': '#FFD4BC', '--tooltip-bg': '#FFFAF8', '--tooltip-bd': '#FFA888',
+      '--shadow': '0 1px 3px rgba(180,30,0,.12), 0 4px 12px rgba(180,30,0,.1)',
+    },
+  },
+  {
+    threshold: 1000, label: '⬛ Gone',
+    vars: {
+      '--bg': '#F3F3F3', '--surface': '#FFFFFF', '--surface2': '#E8E8E8',
+      '--border': '#CCCCCC', '--text-primary': '#111111', '--text-sec': '#555555',
+      '--text-muted': '#999999', '--accent': '#444444', '--accent-bg': '#DDDDDD',
+      '--chart-bar': 'rgba(68,68,68,0.85)', '--chart-hover': 'rgba(36,36,36,1)',
+      '--grid': '#E0E0E0', '--tooltip-bg': '#FFFFFF', '--tooltip-bd': '#CCCCCC',
+      '--shadow': '0 1px 3px rgba(0,0,0,.07), 0 4px 12px rgba(0,0,0,.05)',
+    },
+  },
+];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let entries = [];
+try { entries = JSON.parse(localStorage.getItem('coffee-entries') || '[]'); } catch {}
+const charts = {};
+
+// ── Persistence ───────────────────────────────────────────────────────────────
+function save() {
+  localStorage.setItem('coffee-entries', JSON.stringify(entries));
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function dateStr(ts) { return new Date(ts).toISOString().slice(0, 10); }
+function todayStr()  { return new Date().toISOString().slice(0, 10); }
+function todayEntries() { const t = todayStr(); return entries.filter(e => dateStr(e.ts) === t); }
+function last14Days() {
+  return Array.from({ length: 14 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (13 - i));
+    return d.toISOString().slice(0, 10);
+  });
+}
+function todayCaffeine() {
+  return todayEntries().reduce((s, e) => {
+    const c = COFFEES.find(x => x.id === e.id); return s + (c ? c.caffeine : 0);
+  }, 0);
+}
+
+// ── Theme ─────────────────────────────────────────────────────────────────────
+function applyTheme() {
+  const caf = todayCaffeine();
+  let theme = CAFFEINE_THEMES[0];
+  for (const t of CAFFEINE_THEMES) { if (caf >= t.threshold) theme = t; }
+
+  const root = document.documentElement;
+  for (const [prop, val] of Object.entries(theme.vars)) {
+    root.style.setProperty(prop, val);
+  }
+  document.getElementById('theme-badge').textContent = theme.label;
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+function addCoffee(id) {
+  entries.push({ id, ts: Date.now() });
+  save();
+  refresh();
+  const btn = document.querySelector(`[data-cid="${id}"]`);
+  btn.classList.add('just-added');
+  setTimeout(() => btn.classList.remove('just-added'), 350);
+}
+
+function removeEntry(ts) {
+  entries = entries.filter(e => e.ts !== ts);
+  save();
+  refresh();
+}
+
+// ── Render: buttons ───────────────────────────────────────────────────────────
+function renderButtons() {
+  document.getElementById('coffee-grid').innerHTML = COFFEES.map(c => `
+    <button class="coffee-btn" data-cid="${c.id}" onclick="addCoffee('${c.id}')">
+      <span class="cb-icon">${c.icon}</span>
+      <span class="cb-name">${c.name}</span>
+      <span class="cb-mg">${c.caffeine}mg</span>
+    </button>
+  `).join('');
+}
+
+// ── Render: heroes ────────────────────────────────────────────────────────────
+function renderHeroes() {
+  const today = todayEntries();
+  document.getElementById('h-cups').textContent = today.length;
+
+  const caf = todayCaffeine();
+  document.getElementById('h-caf').textContent = caf + 'mg';
+
+  const pct = caf / 400;
+  const safe = document.getElementById('h-safe');
+  if (caf === 0) {
+    safe.textContent = '';
+  } else if (pct < 0.75) {
+    safe.style.color = '#4CAF50';
+    safe.textContent = `✓ ${Math.round(pct * 100)}% of daily limit`;
+  } else if (pct < 1) {
+    safe.style.color = '#FF9800';
+    safe.textContent = `⚠ ${Math.round(pct * 100)}% of daily limit`;
+  } else {
+    safe.style.color = '#E53935';
+    safe.textContent = `✕ Over 400mg limit`;
+  }
+
+  const cutoff = Date.now() - 7 * 864e5;
+  const byDay = {};
+  entries.filter(e => e.ts >= cutoff).forEach(e => { const d = dateStr(e.ts); byDay[d] = (byDay[d] || 0) + 1; });
+  const total = Object.values(byDay).reduce((a, b) => a + b, 0);
+  document.getElementById('h-avg').textContent = (total / 7).toFixed(1);
+}
+
+// ── Render: log ───────────────────────────────────────────────────────────────
+function renderLog() {
+  const today = todayEntries().slice().sort((a, b) => b.ts - a.ts);
+  const pill = document.getElementById('log-pill');
+  pill.textContent = today.length === 1 ? '1 cup' : `${today.length} cups`;
+
+  const list = document.getElementById('log-list');
+  if (today.length === 0) {
+    list.innerHTML = '<div class="log-empty">No coffee logged yet today. Click a drink above to start.</div>';
+    return;
+  }
+  list.innerHTML = today.map(e => {
+    const c = COFFEES.find(x => x.id === e.id);
+    const time = new Date(e.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `
+      <div class="log-item">
+        <span class="li-time">${time}</span>
+        <span class="li-dot"></span>
+        <span class="li-name">${c.name}</span>
+        <span class="li-mg">${c.caffeine}mg</span>
+        <button class="li-del" onclick="removeEntry(${e.ts})" title="Remove">✕</button>
+      </div>`;
+  }).join('');
+}
+
+// ── Render: breakdown ─────────────────────────────────────────────────────────
+function renderBreakdown() {
+  const counts = {};
+  COFFEES.forEach(c => { counts[c.id] = 0; });
+  entries.forEach(e => { if (counts[e.id] !== undefined) counts[e.id]++; });
+  const sorted = COFFEES.slice().sort((a, b) => counts[b.id] - counts[a.id]);
+  document.getElementById('breakdown').innerHTML = sorted.map(c => `
+    <div class="bd-item">
+      <span class="bd-dot"></span>
+      <span class="bd-name">${c.name}</span>
+      <span class="bd-count">${counts[c.id]}</span>
+    </div>
+  `).join('');
+}
+
+// ── Render: charts ────────────────────────────────────────────────────────────
+function chartColors() {
+  const s = getComputedStyle(document.documentElement);
+  const g = v => s.getPropertyValue(v).trim();
+  return {
+    bar:   g('--chart-bar'),
+    hover: g('--chart-hover'),
+    grid:  g('--grid'),
+    tick:  g('--text-muted'),
+    ttBg:  g('--tooltip-bg'),
+    ttBd:  g('--tooltip-bd'),
+    ttTxt: g('--text-sec'),
+  };
+}
+
+function baseOptions(cc, labelFn) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 300 },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: cc.ttBg,
+        titleColor: cc.ttTxt,
+        bodyColor: cc.ttTxt,
+        borderColor: cc.ttBd,
+        borderWidth: 1,
+        padding: 8,
+        cornerRadius: 6,
+        callbacks: labelFn ? { label: ctx => labelFn(ctx.raw) } : {},
+      },
+    },
+    scales: {
+      x: { grid: { color: cc.grid, lineWidth: 1 }, ticks: { color: cc.tick, font: { size: 11 } }, border: { display: false } },
+      y: { grid: { color: cc.grid, lineWidth: 1 }, ticks: { color: cc.tick, font: { size: 11 }, precision: 0 }, border: { display: false }, beginAtZero: true },
+    },
+  };
+}
+
+function makeBarDataset(data, cc) {
+  return { data, backgroundColor: cc.bar, hoverBackgroundColor: cc.hover, borderRadius: 4, borderSkipped: false, borderWidth: 0 };
+}
+
+function renderCharts() {
+  const cc = chartColors();
+  const days = last14Days();
+  const dayLabels = days.map(d => new Date(d + 'T12:00:00').toLocaleDateString([], { month: 'short', day: 'numeric' }));
+
+  if (charts.day)  charts.day.destroy();
+  if (charts.hour) charts.hour.destroy();
+  if (charts.caf)  charts.caf.destroy();
+
+  charts.day = new Chart(document.getElementById('ch-day'), {
+    type: 'bar',
+    data: { labels: dayLabels, datasets: [makeBarDataset(days.map(d => entries.filter(e => dateStr(e.ts) === d).length), cc)] },
+    options: baseOptions(cc, v => `${v} cup${v !== 1 ? 's' : ''}`),
+  });
+
+  const hourCounts = Array(24).fill(0);
+  entries.forEach(e => { hourCounts[new Date(e.ts).getHours()]++; });
+  const hourLabels = Array.from({ length: 24 }, (_, i) => i === 0 ? '12a' : i < 12 ? `${i}a` : i === 12 ? '12p' : `${i - 12}p`);
+  charts.hour = new Chart(document.getElementById('ch-hour'), {
+    type: 'bar',
+    data: { labels: hourLabels, datasets: [makeBarDataset(hourCounts, cc)] },
+    options: baseOptions(cc, v => `${v} cup${v !== 1 ? 's' : ''}`),
+  });
+
+  charts.caf = new Chart(document.getElementById('ch-caf'), {
+    type: 'bar',
+    data: {
+      labels: dayLabels,
+      datasets: [makeBarDataset(
+        days.map(d => entries.filter(e => dateStr(e.ts) === d).reduce((s, e) => { const c = COFFEES.find(x => x.id === e.id); return s + (c ? c.caffeine : 0); }, 0)),
+        cc
+      )],
+    },
+    options: baseOptions(cc, v => `${v}mg caffeine`),
+  });
+}
+
+// ── Refresh all ───────────────────────────────────────────────────────────────
+function refresh() {
+  applyTheme();      // theme first so chart colors are correct
+  renderHeroes();
+  renderLog();
+  renderBreakdown();
+  renderCharts();
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+(function init() {
+  document.getElementById('hdr-date').textContent = new Date().toLocaleDateString([], {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+  renderButtons();
+  refresh();
+})();
+</script>
+</body>
+</html>
