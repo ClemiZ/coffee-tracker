@@ -7,6 +7,13 @@ const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
+const USER_COLS = 'id, email, username, avatar, featured_badges, created_at';
+
+function parseUser(u) {
+  if (!u) return u;
+  return { ...u, featured_badges: u.featured_badges ? u.featured_badges.split(',').filter(Boolean) : [] };
+}
+
 function makeToken(user) {
   return jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '30d' });
 }
@@ -27,7 +34,7 @@ router.post('/register', (req, res) => {
   db.prepare('INSERT INTO user_streaks (user_id) VALUES (?)').run(id);
   db.prepare('INSERT INTO user_combos (user_id) VALUES (?)').run(id);
 
-  const user = db.prepare('SELECT id, email, username, avatar, created_at FROM users WHERE id = ?').get(id);
+  const user = parseUser(db.prepare(`SELECT ${USER_COLS} FROM users WHERE id = ?`).get(id));
   res.json({ token: makeToken(user), user });
 });
 
@@ -35,24 +42,30 @@ router.post('/login', (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
 
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim());
-  if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+  const row = db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim());
+  if (!row || !bcrypt.compareSync(password, row.password_hash)) {
     return res.status(401).json({ error: 'Invalid email or password' });
   }
-  const { password_hash, ...safe } = user;
-  res.json({ token: makeToken(user), user: safe });
+  const { password_hash, ...safe } = row;
+  res.json({ token: makeToken(row), user: parseUser(safe) });
 });
 
 router.get('/me', requireAuth, (req, res) => {
-  const user = db.prepare('SELECT id, email, username, avatar, created_at FROM users WHERE id = ?').get(req.user.id);
+  const user = parseUser(db.prepare(`SELECT ${USER_COLS} FROM users WHERE id = ?`).get(req.user.id));
   if (!user) return res.status(404).json({ error: 'User not found' });
   res.json(user);
 });
 
 router.patch('/me', requireAuth, (req, res) => {
-  const { username, avatar } = req.body;
+  const { username, avatar, featured_badges } = req.body;
   if (username && !/^[a-zA-Z0-9_-]{2,20}$/.test(username)) {
     return res.status(400).json({ error: 'Invalid username' });
+  }
+  if (featured_badges !== undefined) {
+    if (!Array.isArray(featured_badges) || featured_badges.length > 3) {
+      return res.status(400).json({ error: 'featured_badges must be an array of up to 3 badge IDs' });
+    }
+    db.prepare('UPDATE users SET featured_badges = ? WHERE id = ?').run(featured_badges.join(','), req.user.id);
   }
   if (username) {
     const taken = db.prepare('SELECT id FROM users WHERE username = ? AND id != ?').get(username, req.user.id);
@@ -62,7 +75,7 @@ router.patch('/me', requireAuth, (req, res) => {
   if (avatar) {
     db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(avatar, req.user.id);
   }
-  const user = db.prepare('SELECT id, email, username, avatar, created_at FROM users WHERE id = ?').get(req.user.id);
+  const user = parseUser(db.prepare(`SELECT ${USER_COLS} FROM users WHERE id = ?`).get(req.user.id));
   res.json(user);
 });
 

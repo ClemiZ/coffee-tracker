@@ -107,4 +107,6 @@ db.exec(`
   );
 `);
 
+try { db.exec("ALTER TABLE users ADD COLUMN featured_badges TEXT NOT NULL DEFAULT ''"); } catch {}
+
 module.exports = db;

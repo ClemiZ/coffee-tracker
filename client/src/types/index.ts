@@ -18,6 +18,7 @@ export interface User {
   email: string;
   username: string;
   avatar: string;
+  featured_badges: string[];
   created_at: number;
 }
 

@@ -3,9 +3,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuthStore } from '../store/auth';
-import type { User, Stats } from '../types';
+import type { User, Stats, Badge } from '../types';
 
 const AVATARS = ['☕', '🥛', '🧋', '🍫', '🍨', '⚡', '🔥', '💀', '🏆', '🎯', '👑', '🤖'];
+
+const RARITY_COLORS: Record<string, string> = {
+  common: '#9E9E9E', uncommon: '#4CAF50', rare: '#2196F3',
+  epic: '#9C27B0', legendary: '#FF9800', secret: '#FF1744',
+};
 
 export function Profile() {
   const { user, setAuth, logout } = useAuthStore();
@@ -14,14 +19,20 @@ export function Profile() {
   const [editMode, setEditMode] = useState(false);
   const [newUsername, setNewUsername] = useState(user?.username || '');
   const [selectedAvatar, setSelectedAvatar] = useState(user?.avatar || '☕');
+  const [featuredBadges, setFeaturedBadges] = useState<string[]>(user?.featured_badges ?? []);
   const [error, setError] = useState('');
 
   const { data: stats } = useQuery<Stats>({ queryKey: ['stats'], queryFn: () => api.get('/coffees/stats') });
+  const { data: badges = [] } = useQuery<Badge[]>({ queryKey: ['badges'], queryFn: () => api.get('/badges') });
+
+  const unlockedBadges = badges.filter(b => b.unlocked);
 
   const updateMutation = useMutation({
-    mutationFn: (body: { username?: string; avatar?: string }) => api.patch<User>('/auth/me', body),
+    mutationFn: (body: { username?: string; avatar?: string; featured_badges?: string[] }) =>
+      api.patch<User>('/auth/me', body),
     onSuccess: (updated) => {
       setAuth(updated, localStorage.getItem('token')!);
+      setFeaturedBadges(updated.featured_badges ?? []);
       setEditMode(false);
     },
     onError: (e: any) => setError(e.message),
@@ -32,14 +43,28 @@ export function Profile() {
     const body: any = {};
     if (newUsername !== user?.username) body.username = newUsername;
     if (selectedAvatar !== user?.avatar) body.avatar = selectedAvatar;
+    const currentFeatured = user?.featured_badges ?? [];
+    if (JSON.stringify(featuredBadges) !== JSON.stringify(currentFeatured)) {
+      body.featured_badges = featuredBadges;
+    }
     if (Object.keys(body).length === 0) { setEditMode(false); return; }
     updateMutation.mutate(body);
+  }
+
+  function toggleBadge(id: string) {
+    setFeaturedBadges(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : prev.length < 3 ? [...prev, id] : prev
+    );
   }
 
   function handleLogout() {
     logout();
     navigate('/auth');
   }
+
+  const displayedBadges = (user?.featured_badges ?? [])
+    .map(id => badges.find(b => b.id === id))
+    .filter(Boolean) as Badge[];
 
   return (
     <div className="page">
@@ -66,6 +91,33 @@ export function Profile() {
               <label>Username</label>
               <input value={newUsername} onChange={e => setNewUsername(e.target.value)} />
             </div>
+
+            <div className="field" style={{ marginTop: 12 }}>
+              <label>Featured Badges <span className="field-hint">({featuredBadges.length}/3)</span></label>
+              {unlockedBadges.length === 0 ? (
+                <div className="badge-picker-empty">Unlock badges to feature them here</div>
+              ) : (
+                <div className="badge-picker">
+                  {unlockedBadges.map(b => {
+                    const selected = featuredBadges.includes(b.id);
+                    const disabled = !selected && featuredBadges.length >= 3;
+                    return (
+                      <button
+                        key={b.id}
+                        className={`badge-pick-opt ${selected ? 'selected' : ''} ${disabled ? 'disabled' : ''}`}
+                        onClick={() => !disabled && toggleBadge(b.id)}
+                        title={b.description}
+                        style={{ borderColor: selected ? RARITY_COLORS[b.rarity] : undefined }}
+                      >
+                        <span className="bpo-icon">{b.icon}</span>
+                        <span className="bpo-name">{b.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             {error && <div className="auth-error">{error}</div>}
             <div className="edit-actions">
               <button className="btn-primary" onClick={handleSave} disabled={updateMutation.isPending}>Save</button>
@@ -77,6 +129,16 @@ export function Profile() {
             <div className="profile-username">{user?.username}</div>
             <div className="profile-email">{user?.email}</div>
             <div className="profile-since">Member since {user ? new Date(user.created_at).toLocaleDateString() : '—'}</div>
+            {displayedBadges.length > 0 && (
+              <div className="profile-featured-badges">
+                {displayedBadges.map(b => (
+                  <div key={b.id} className="pfb-item" title={b.description} style={{ borderColor: RARITY_COLORS[b.rarity] }}>
+                    <span className="pfb-icon">{b.icon}</span>
+                    <span className="pfb-name">{b.name}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             <button className="btn-secondary" style={{ marginTop: 12 }} onClick={() => setEditMode(true)}>Edit Profile</button>
           </>
         )}
