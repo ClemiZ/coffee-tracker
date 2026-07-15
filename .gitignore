@@ -19,6 +19,9 @@ out-tsc/
 .DS_Store
 Thumbs.db
 
+# SQLite database
+server/data/
+
 # Env / local overrides
 *.local
 .env

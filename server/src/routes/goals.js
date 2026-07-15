@@ -1,0 +1,130 @@
+const express = require('express');
+const db = require('../db');
+const { requireAuth } = require('../middleware/auth');
+const { getDailyTasks } = require('../data/tasks');
+const { COFFEES } = require('../data/coffees');
+const { checkAfterGoalsComplete } = require('../achievements');
+
+const router = express.Router();
+
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function dateStr(ts) { return new Date(ts).toISOString().slice(0, 10); }
+
+function evaluateTask(taskId, userId) {
+  const today = todayStr();
+  const dayStart = new Date(today + 'T00:00:00').getTime();
+  const dayEnd   = new Date(today + 'T23:59:59.999').getTime();
+
+  const todayEntries = db.prepare(
+    'SELECT coffee_id, caffeine_mg, logged_at FROM coffee_entries WHERE user_id = ? AND logged_at BETWEEN ? AND ?'
+  ).all(userId, dayStart, dayEnd);
+
+  const todayCaffeine = todayEntries.reduce((s, e) => s + e.caffeine_mg, 0);
+  const todayTypes = new Set(todayEntries.map(e => e.coffee_id));
+
+  const weekStart = Date.now() - 7 * 86400000;
+  const weekEntries = db.prepare(
+    'SELECT coffee_id FROM coffee_entries WHERE user_id = ? AND logged_at >= ?'
+  ).all(userId, weekStart);
+  const weekTypes = new Set(weekEntries.map(e => e.coffee_id));
+
+  const allTypes = new Set(db.prepare(
+    'SELECT DISTINCT coffee_id FROM coffee_entries WHERE user_id = ?'
+  ).all(userId).map(e => e.coffee_id));
+
+  switch (taskId) {
+    case 'log_first_coffee':
+      return todayEntries.length >= 1;
+
+    case 'try_new_type': {
+      // A type not logged any time this week before today
+      const prevWeekEntries = db.prepare(
+        'SELECT DISTINCT coffee_id FROM coffee_entries WHERE user_id = ? AND logged_at >= ? AND logged_at < ?'
+      ).all(userId, weekStart, dayStart);
+      const prevTypes = new Set(prevWeekEntries.map(e => e.coffee_id));
+      return todayEntries.some(e => !prevTypes.has(e.coffee_id));
+    }
+
+    case 'stay_under_limit':
+      return todayEntries.length > 0 && todayCaffeine < 400;
+
+    case 'log_before_10am': {
+      const tenAm = new Date(today + 'T10:00:00').getTime();
+      return todayEntries.some(e => e.logged_at < tenAm);
+    }
+
+    case 'log_after_3pm': {
+      const threePm = new Date(today + 'T15:00:00').getTime();
+      return todayEntries.some(e => e.logged_at >= threePm);
+    }
+
+    case 'two_types':
+      return todayTypes.size >= 2;
+
+    case 'three_cups':
+      return todayEntries.length >= 3;
+
+    case 'have_espresso':
+      return todayEntries.some(e => e.coffee_id === 'espresso' || e.coffee_id === 'espresso_mac');
+
+    case 'have_latte':
+      return todayEntries.some(e => e.coffee_id === 'latte' || e.coffee_id === 'latte_macchiato');
+
+    case 'under_200mg':
+      return todayEntries.length > 0 && todayCaffeine < 200;
+
+    case 'log_within_hour_of_waking': {
+      const eightAm = new Date(today + 'T08:00:00').getTime();
+      return todayEntries.some(e => e.logged_at < eightAm);
+    }
+
+    case 'exactly_two_cups':
+      return todayEntries.length === 2;
+
+    case 'have_doppio':
+      return todayEntries.some(e => e.coffee_id === 'doppio');
+
+    case 'have_cold':
+      return todayEntries.some(e => e.coffee_id === 'frappuccino');
+
+    default:
+      return false;
+  }
+}
+
+// GET /api/goals/today — get today's tasks with current completion state
+router.get('/today', requireAuth, (req, res) => {
+  const today = todayStr();
+  const tasks = getDailyTasks(today, req.user.id).map(task => ({
+    ...task,
+    completed: evaluateTask(task.id, req.user.id),
+  }));
+
+  const streak = db.prepare('SELECT * FROM user_streaks WHERE user_id = ?').get(req.user.id);
+  res.json({ date: today, tasks, streak });
+});
+
+// POST /api/goals/complete — evaluate all tasks and award streak if all done
+router.post('/complete', requireAuth, (req, res) => {
+  const today = todayStr();
+  const tasks = getDailyTasks(today, req.user.id).map(task => ({
+    ...task,
+    completed: evaluateTask(task.id, req.user.id),
+  }));
+
+  const allDone = tasks.every(t => t.completed);
+  let unlocked = [];
+
+  if (allDone) {
+    // Only credit if not already credited today
+    const streak = db.prepare('SELECT * FROM user_streaks WHERE user_id = ?').get(req.user.id);
+    if (streak?.last_goal_date !== today) {
+      unlocked = checkAfterGoalsComplete(req.user.id);
+    }
+  }
+
+  const updatedStreak = db.prepare('SELECT * FROM user_streaks WHERE user_id = ?').get(req.user.id);
+  res.json({ tasks, allDone, unlocked, streak: updatedStreak });
+});
+
+module.exports = router;
