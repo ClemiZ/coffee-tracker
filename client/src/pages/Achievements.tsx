@@ -22,7 +22,6 @@ export function Achievements() {
 
   const unlockedAch = achievements.filter(a => a.unlocked).length;
   const unlockedBadge = badges.filter(b => b.unlocked).length;
-
   const categories = [...new Set(achievements.map(a => a.category))];
 
   return (
@@ -32,50 +31,52 @@ export function Achievements() {
         <p className="page-sub">{unlockedAch}/{achievements.length} achievements · {unlockedBadge}/{badges.length} badges</p>
       </div>
 
-      <div className="card">
-        <div className="section-label">Badges</div>
-        <div className="badges-grid">
-          {badges
-            .slice()
-            .sort((a, b) => (b.unlocked ? 1 : 0) - (a.unlocked ? 1 : 0) || RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity))
-            .map(b => (
-              <div key={b.id} className={`badge-card ${b.unlocked ? 'unlocked' : 'locked'}`} title={b.description}>
-                <div className="badge-icon">{b.icon}</div>
-                <div className="badge-name">{b.name}</div>
-                <div className="badge-rarity" style={{ color: RARITY_COLORS[b.rarity] || '#999' }}>
-                  {rarityLabel(b.rarity)}
-                </div>
-                {b.unlocked && b.unlocked_at && (
-                  <div className="badge-date">{new Date(b.unlocked_at).toLocaleDateString()}</div>
-                )}
-              </div>
-            ))}
-        </div>
-      </div>
-
-      {categories.map(cat => {
-        const catAchs = achievements.filter(a => a.category === cat);
-        return (
-          <div key={cat} className="card">
-            <div className="section-label">{cat.charAt(0).toUpperCase() + cat.slice(1)}</div>
-            <div className="ach-list">
-              {catAchs.map(a => (
-                <div key={a.id} className={`ach-item ${a.unlocked ? 'unlocked' : 'locked'}`}>
-                  <div className="ach-icon">{a.icon}</div>
-                  <div className="ach-body">
-                    <div className="ach-name">{a.name}</div>
-                    <div className="ach-desc">{a.description}</div>
-                    {a.unlocked && a.unlocked_at && (
-                      <div className="ach-date">Unlocked {new Date(a.unlocked_at).toLocaleDateString()}</div>
-                    )}
+      <main>
+        <div className="card">
+          <div className="section-label">Badges</div>
+          <div className="badges-grid">
+            {badges
+              .slice()
+              .sort((a, b) => (b.unlocked ? 1 : 0) - (a.unlocked ? 1 : 0) || RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity))
+              .map(b => (
+                <div key={b.id} className={`badge-card ${b.unlocked ? 'unlocked' : 'locked'}`} title={b.description}>
+                  <div className="badge-icon">{b.icon}</div>
+                  <div className="badge-name">{b.name}</div>
+                  <div className="badge-rarity" style={{ color: RARITY_COLORS[b.rarity] || '#999' }}>
+                    {rarityLabel(b.rarity)}
                   </div>
-                  {a.unlocked && <div className="ach-check">✅</div>}
+                  {b.unlocked && b.unlocked_at && (
+                    <div className="badge-date">{new Date(b.unlocked_at).toLocaleDateString()}</div>
+                  )}
                 </div>
               ))}
-            </div>
           </div>
-        );
-      })}
+        </div>
+
+        {categories.map(cat => {
+          const catAchs = achievements.filter(a => a.category === cat);
+          return (
+            <div key={cat} className="card">
+              <div className="section-label">{cat.charAt(0).toUpperCase() + cat.slice(1)}</div>
+              <div className="ach-list">
+                {catAchs.map(a => (
+                  <div key={a.id} className={`ach-item ${a.unlocked ? 'unlocked' : 'locked'}`}>
+                    <div className="ach-icon">{a.icon}</div>
+                    <div className="ach-body">
+                      <div className="ach-name">{a.name}</div>
+                      <div className="ach-desc">{a.description}</div>
+                      {a.unlocked && a.unlocked_at && (
+                        <div className="ach-date">Unlocked {new Date(a.unlocked_at).toLocaleDateString()}</div>
+                      )}
+                    </div>
+                    {a.unlocked && <div className="ach-check">✅</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </main>
     </div>
   );
 }

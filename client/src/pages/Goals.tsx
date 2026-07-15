@@ -37,61 +37,63 @@ export function Goals() {
         <p className="page-sub">{new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</p>
       </div>
 
-      <div className="card streak-card">
-        <div className="streak-row">
-          <div className="streak-stat">
-            <div className="streak-val">{data.streak?.current_streak ?? 0}</div>
-            <div className="streak-lbl">Day Streak 🔥</div>
-          </div>
-          <div className="streak-stat">
-            <div className="streak-val">{data.streak?.longest_streak ?? 0}</div>
-            <div className="streak-lbl">Best Streak</div>
-          </div>
-          <div className="streak-stat">
-            <div className="streak-val">{data.streak?.goals_completed ?? 0}</div>
-            <div className="streak-lbl">Total Completions</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="card">
-        <div className="section-label">Today's Tasks — {doneCount}/{data.tasks.length}</div>
-        <div className="progress-bar-wrap">
-          <div className="progress-bar" style={{ width: `${(doneCount / data.tasks.length) * 100}%` }} />
-        </div>
-        <div className="task-list">
-          {data.tasks.map(task => (
-            <div key={task.id} className={`task-item ${task.completed ? 'done' : ''}`}>
-              <div className="task-check">{task.completed ? '✅' : '⬜'}</div>
-              <span className="task-icon">{task.icon}</span>
-              <span className="task-label">{task.label}</span>
+      <main>
+        <div className="card streak-card">
+          <div className="streak-row">
+            <div className="streak-stat">
+              <div className="streak-val">{data.streak?.current_streak ?? 0}</div>
+              <div className="streak-lbl">Day Streak 🔥</div>
             </div>
-          ))}
+            <div className="streak-stat">
+              <div className="streak-val">{data.streak?.longest_streak ?? 0}</div>
+              <div className="streak-lbl">Best Streak</div>
+            </div>
+            <div className="streak-stat">
+              <div className="streak-val">{data.streak?.goals_completed ?? 0}</div>
+              <div className="streak-lbl">Total Completions</div>
+            </div>
+          </div>
         </div>
 
-        {allDone ? (
-          <div className="goals-complete-banner">
-            🎉 All goals completed! Streak extended!
+        <div className="card">
+          <div className="section-label">Today's Tasks — {doneCount}/{data.tasks.length}</div>
+          <div className="progress-bar-wrap">
+            <div className="progress-bar" style={{ width: `${(doneCount / data.tasks.length) * 100}%` }} />
           </div>
-        ) : (
-          <button
-            className="btn-primary"
-            style={{ marginTop: 16 }}
-            onClick={() => completeMutation.mutate()}
-            disabled={completeMutation.isPending}
-          >
-            {completeMutation.isPending ? 'Checking…' : 'Check Progress'}
-          </button>
-        )}
-      </div>
+          <div className="task-list">
+            {data.tasks.map(task => (
+              <div key={task.id} className={`task-item ${task.completed ? 'done' : ''}`}>
+                <div className="task-check">{task.completed ? '✅' : '⬜'}</div>
+                <span className="task-icon">{task.icon}</span>
+                <span className="task-label">{task.label}</span>
+              </div>
+            ))}
+          </div>
 
-      <div className="card">
-        <div className="section-label">How goals work</div>
-        <p style={{ fontSize: '0.82rem', color: 'var(--text-sec)', lineHeight: 1.6 }}>
-          You get 4 random tasks each day. Complete all of them to extend your streak.
-          Tasks evaluate automatically based on today's coffee log — just log your coffees and check back!
-        </p>
-      </div>
+          {allDone ? (
+            <div className="goals-complete-banner">
+              🎉 All goals completed! Streak extended!
+            </div>
+          ) : (
+            <button
+              className="btn-primary"
+              style={{ marginTop: 16 }}
+              onClick={() => completeMutation.mutate()}
+              disabled={completeMutation.isPending}
+            >
+              {completeMutation.isPending ? 'Checking…' : 'Check Progress'}
+            </button>
+          )}
+        </div>
+
+        <div className="card">
+          <div className="section-label">How goals work</div>
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-sec)', lineHeight: 1.6 }}>
+            You get 4 random tasks each day. Complete all of them to extend your streak.
+            Tasks evaluate automatically based on today's coffee log — just log your coffees and check back!
+          </p>
+        </div>
+      </main>
     </div>
   );
 }

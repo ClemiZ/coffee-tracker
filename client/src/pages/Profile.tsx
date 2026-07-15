@@ -72,100 +72,102 @@ export function Profile() {
         <h2>Profile</h2>
       </div>
 
-      <div className="card profile-card">
-        <div className="profile-avatar">{user?.avatar}</div>
-        {editMode ? (
-          <div className="edit-section">
-            <div className="avatar-picker">
-              {AVATARS.map(a => (
-                <button
-                  key={a}
-                  className={`avatar-opt ${selectedAvatar === a ? 'selected' : ''}`}
-                  onClick={() => setSelectedAvatar(a)}
-                >
-                  {a}
-                </button>
-              ))}
-            </div>
-            <div className="field" style={{ marginTop: 12 }}>
-              <label>Username</label>
-              <input value={newUsername} onChange={e => setNewUsername(e.target.value)} />
-            </div>
-
-            <div className="field" style={{ marginTop: 12 }}>
-              <label>Featured Badges <span className="field-hint">({featuredBadges.length}/3)</span></label>
-              {unlockedBadges.length === 0 ? (
-                <div className="badge-picker-empty">Unlock badges to feature them here</div>
-              ) : (
-                <div className="badge-picker">
-                  {unlockedBadges.map(b => {
-                    const selected = featuredBadges.includes(b.id);
-                    const disabled = !selected && featuredBadges.length >= 3;
-                    return (
-                      <button
-                        key={b.id}
-                        className={`badge-pick-opt ${selected ? 'selected' : ''} ${disabled ? 'disabled' : ''}`}
-                        onClick={() => !disabled && toggleBadge(b.id)}
-                        title={b.description}
-                        style={{ borderColor: selected ? RARITY_COLORS[b.rarity] : undefined }}
-                      >
-                        <span className="bpo-icon">{b.icon}</span>
-                        <span className="bpo-name">{b.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {error && <div className="auth-error">{error}</div>}
-            <div className="edit-actions">
-              <button className="btn-primary" onClick={handleSave} disabled={updateMutation.isPending}>Save</button>
-              <button className="btn-secondary" onClick={() => setEditMode(false)}>Cancel</button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="profile-username">{user?.username}</div>
-            <div className="profile-email">{user?.email}</div>
-            <div className="profile-since">Member since {user ? new Date(user.created_at).toLocaleDateString() : '—'}</div>
-            {displayedBadges.length > 0 && (
-              <div className="profile-featured-badges">
-                {displayedBadges.map(b => (
-                  <div key={b.id} className="pfb-item" title={b.description} style={{ borderColor: RARITY_COLORS[b.rarity] }}>
-                    <span className="pfb-icon">{b.icon}</span>
-                    <span className="pfb-name">{b.name}</span>
-                  </div>
+      <main>
+        <div className="card profile-card">
+          <div className="profile-avatar">{user?.avatar}</div>
+          {editMode ? (
+            <div className="edit-section">
+              <div className="avatar-picker">
+                {AVATARS.map(a => (
+                  <button
+                    key={a}
+                    className={`avatar-opt ${selectedAvatar === a ? 'selected' : ''}`}
+                    onClick={() => setSelectedAvatar(a)}
+                  >
+                    {a}
+                  </button>
                 ))}
               </div>
-            )}
-            <button className="btn-secondary" style={{ marginTop: 12 }} onClick={() => setEditMode(true)}>Edit Profile</button>
-          </>
-        )}
-      </div>
+              <div className="field" style={{ marginTop: 12 }}>
+                <label>Username</label>
+                <input value={newUsername} onChange={e => setNewUsername(e.target.value)} />
+              </div>
 
-      {stats && (
-        <div className="card">
-          <div className="section-label">My Stats</div>
-          <div className="profile-stats">
-            <div className="ps-item"><div className="ps-val">{stats.total_cups}</div><div className="ps-lbl">Total Cups</div></div>
-            <div className="ps-item"><div className="ps-val">{stats.total_caffeine}mg</div><div className="ps-lbl">Total Caffeine</div></div>
-            <div className="ps-item"><div className="ps-val">{stats.seven_day_avg}</div><div className="ps-lbl">7-day avg</div></div>
-            <div className="ps-item"><div className="ps-val">{Object.keys(stats.by_type).length}</div><div className="ps-lbl">Types Tried</div></div>
-          </div>
+              <div className="field" style={{ marginTop: 12 }}>
+                <label>Featured Badges <span className="field-hint">({featuredBadges.length}/3)</span></label>
+                {unlockedBadges.length === 0 ? (
+                  <div className="badge-picker-empty">Unlock badges to feature them here</div>
+                ) : (
+                  <div className="badge-picker">
+                    {unlockedBadges.map(b => {
+                      const selected = featuredBadges.includes(b.id);
+                      const disabled = !selected && featuredBadges.length >= 3;
+                      return (
+                        <button
+                          key={b.id}
+                          className={`badge-pick-opt ${selected ? 'selected' : ''} ${disabled ? 'disabled' : ''}`}
+                          onClick={() => !disabled && toggleBadge(b.id)}
+                          title={b.description}
+                          style={{ borderColor: selected ? RARITY_COLORS[b.rarity] : undefined }}
+                        >
+                          <span className="bpo-icon">{b.icon}</span>
+                          <span className="bpo-name">{b.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {error && <div className="auth-error">{error}</div>}
+              <div className="edit-actions">
+                <button className="btn-primary" onClick={handleSave} disabled={updateMutation.isPending}>Save</button>
+                <button className="btn-secondary" onClick={() => setEditMode(false)}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="profile-username">{user?.username}</div>
+              <div className="profile-email">{user?.email}</div>
+              <div className="profile-since">Member since {user ? new Date(user.created_at).toLocaleDateString() : '—'}</div>
+              {displayedBadges.length > 0 && (
+                <div className="profile-featured-badges">
+                  {displayedBadges.map(b => (
+                    <div key={b.id} className="pfb-item" title={b.description} style={{ borderColor: RARITY_COLORS[b.rarity] }}>
+                      <span className="pfb-icon">{b.icon}</span>
+                      <span className="pfb-name">{b.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button className="btn-secondary" style={{ marginTop: 12 }} onClick={() => setEditMode(true)}>Edit Profile</button>
+            </>
+          )}
         </div>
-      )}
 
-      <div className="card">
-        <div className="section-label">Compare with others</div>
-        <button className="btn-secondary" onClick={() => navigate('/compare')} style={{ width: '100%' }}>
-          ⚖️ Find a user to compare
-        </button>
-      </div>
+        {stats && (
+          <div className="card">
+            <div className="section-label">My Stats</div>
+            <div className="profile-stats">
+              <div className="ps-item"><div className="ps-val">{stats.total_cups}</div><div className="ps-lbl">Total Cups</div></div>
+              <div className="ps-item"><div className="ps-val">{stats.total_caffeine}mg</div><div className="ps-lbl">Total Caffeine</div></div>
+              <div className="ps-item"><div className="ps-val">{stats.seven_day_avg}</div><div className="ps-lbl">7-day avg</div></div>
+              <div className="ps-item"><div className="ps-val">{Object.keys(stats.by_type).length}</div><div className="ps-lbl">Types Tried</div></div>
+            </div>
+          </div>
+        )}
 
-      <div className="card">
-        <button className="btn-danger" onClick={handleLogout}>Sign Out</button>
-      </div>
+        <div className="card">
+          <div className="section-label">Compare with others</div>
+          <button className="btn-secondary" onClick={() => navigate('/compare')} style={{ width: '100%' }}>
+            ⚖️ Find a user to compare
+          </button>
+        </div>
+
+        <div className="card">
+          <button className="btn-danger" onClick={handleLogout}>Sign Out</button>
+        </div>
+      </main>
     </div>
   );
 }
