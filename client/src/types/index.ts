@@ -123,21 +123,61 @@ export interface Stats {
   last14: Array<{ date: string; cups: number; caffeine: number }>;
 }
 
+export interface CompareUserStats {
+  total_cups: number;
+  total_caffeine: number;
+  today_cups: number;
+  today_caffeine: number;
+  seven_day_avg: number;
+  favourite_coffee: Coffee | null;
+  unique_types: number;
+  current_streak: number;
+  longest_streak: number;
+  achievements_count: number;
+  badges_count: number;
+}
+
 export interface CompareUserProfile {
   id: string;
   username: string;
   avatar: string;
-  stats: {
-    total_cups: number;
-    total_caffeine: number;
-    today_cups: number;
-    today_caffeine: number;
-    seven_day_avg: number;
-    favourite_coffee: Coffee | null;
-    unique_types: number;
-    current_streak: number;
-    longest_streak: number;
-    achievements_count: number;
-    badges_count: number;
-  };
+  stats: CompareUserStats;
+}
+
+/* ── API response envelopes ──────────────────────────────────────────────────
+ * Shapes returned by the Express server for the non-entity endpoints. These are
+ * currently re-declared inline in several pages (and typed as `any` in Goals);
+ * defining them here keeps every caller aligned with the server contract. */
+
+export interface AuthResponse {
+  token: string;
+  user: User;
+}
+
+export interface LogCoffeeResponse {
+  entry: CoffeeEntry;
+  unlocked: UnlockNotification[];
+}
+
+export interface GoalsCompleteResponse {
+  tasks: Task[];
+  allDone: boolean;
+  unlocked: UnlockNotification[];
+  streak: Streak;
+}
+
+export interface JoinChallengeResponse {
+  ok: boolean;
+  unlocked: UnlockNotification[];
+}
+
+export interface RankingsResponse {
+  rankings: RankingEntry[];
+  my_rank: RankingEntry | null;
+}
+
+export interface CompareResponse {
+  me: CompareUserProfile;
+  them: CompareUserProfile;
+  unlocked: UnlockNotification[];
 }

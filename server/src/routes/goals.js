@@ -4,16 +4,13 @@ const { requireAuth } = require('../middleware/auth');
 const { getDailyTasks } = require('../data/tasks');
 const { COFFEES } = require('../data/coffees');
 const { checkAfterGoalsComplete } = require('../achievements');
+const { todayStr, dayBounds } = require('./_helpers');
 
 const router = express.Router();
 
-function todayStr() { return new Date().toISOString().slice(0, 10); }
-function dateStr(ts) { return new Date(ts).toISOString().slice(0, 10); }
-
 function evaluateTask(taskId, userId) {
   const today = todayStr();
-  const dayStart = new Date(today + 'T00:00:00').getTime();
-  const dayEnd   = new Date(today + 'T23:59:59.999').getTime();
+  const { start: dayStart, end: dayEnd } = dayBounds(today);
 
   const todayEntries = db.prepare(
     'SELECT coffee_id, caffeine_mg, logged_at FROM coffee_entries WHERE user_id = ? AND logged_at BETWEEN ? AND ?'

@@ -9,17 +9,27 @@ function getToken(): string | null {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
-  const res = await fetch(`${BASE}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
-  });
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  // Precedence matches the original: default Content-Type, then the token,
+  // then any caller-supplied headers (which may override either).
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  Object.assign(headers, options.headers as Record<string, string> | undefined);
+
+  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+
+  // An empty/non-JSON body (e.g. 204 responses) is treated as an empty object.
+  const data: unknown = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    const message =
+      typeof data === 'object' && data !== null &&
+      typeof (data as { error?: unknown }).error === 'string'
+        ? (data as { error: string }).error
+        : `HTTP ${res.status}`;
+    throw new Error(message);
+  }
+
   return data as T;
 }
 

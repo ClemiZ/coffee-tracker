@@ -17,14 +17,18 @@ import { Profile } from './pages/Profile';
 import type { User } from './types';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
-  const { token } = useAuthStore();
+  const token = useAuthStore(s => s.token);
   if (!token) return <Navigate to="/auth" replace />;
   return children;
 }
 
 export function App() {
-  const { token, user, setAuth } = useAuthStore();
-  const { levelIndex, isDark, toggleDark } = useThemeStore();
+  const token = useAuthStore(s => s.token);
+  const user = useAuthStore(s => s.user);
+  const setAuth = useAuthStore(s => s.setAuth);
+  const levelIndex = useThemeStore(s => s.levelIndex);
+  const isDark = useThemeStore(s => s.isDark);
+  const toggleDark = useThemeStore(s => s.toggleDark);
   const location = useLocation();
 
   useQuery({

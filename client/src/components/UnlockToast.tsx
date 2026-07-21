@@ -18,16 +18,23 @@ export function UnlockToast({ notifications, onClear }: Props) {
     }
   }, [notifications]);
 
+  // Advance to the next queued notification once nothing is showing.
   useEffect(() => {
     if (!visible && queue.length > 0) {
       const [next, ...rest] = queue;
       setCurrent(next);
       setQueue(rest);
       setVisible(true);
-      const t = setTimeout(() => setVisible(false), 3500);
-      return () => clearTimeout(t);
     }
   }, [queue, visible]);
+
+  // Auto-hide the current notification after a few seconds. Keyed on `current`
+  // so each shown item gets its own timer that isn't cancelled by queue changes.
+  useEffect(() => {
+    if (!visible || !current) return;
+    const t = setTimeout(() => setVisible(false), 3500);
+    return () => clearTimeout(t);
+  }, [visible, current]);
 
   if (!visible || !current) return null;
 

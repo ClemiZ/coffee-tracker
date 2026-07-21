@@ -12,8 +12,8 @@ interface CompareResponse {
 }
 
 function StatRow({ label, mine, theirs }: { label: string; mine: number | string; theirs: number | string }) {
-  const mNum = typeof mine === 'number' ? mine : parseFloat(mine as string);
-  const tNum = typeof theirs === 'number' ? theirs : parseFloat(theirs as string);
+  const mNum = typeof mine === 'number' ? mine : parseFloat(mine);
+  const tNum = typeof theirs === 'number' ? theirs : parseFloat(theirs);
   const winning = mNum > tNum;
   const losing  = mNum < tNum;
   return (

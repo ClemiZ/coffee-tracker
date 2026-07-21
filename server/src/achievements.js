@@ -20,8 +20,8 @@ function unlockAchievement(userId, achievementId) {
     'INSERT INTO user_achievements (id, user_id, achievement_id, unlocked_at) VALUES (?, ?, ?, ?)'
   ).run(randomUUID(), userId, achievementId, Date.now());
 
-  checkBadgesForAchievement(userId, achievementId);
-  return def;
+  const badges = checkBadgesForAchievement(userId, achievementId);
+  return { def, badges };
 }
 
 function unlockBadge(userId, badgeId) {
@@ -40,11 +40,14 @@ function unlockBadge(userId, badgeId) {
 }
 
 function checkBadgesForAchievement(userId, achievementId) {
+  const notifs = [];
   for (const badge of BADGES) {
     if (badge.requirement.type === 'achievement' && badge.requirement.achievementId === achievementId) {
-      unlockBadge(userId, badge.id);
+      const b = unlockBadge(userId, badge.id);
+      if (b) notifs.push({ type: 'badge', ...b });
     }
   }
+  return notifs;
 }
 
 function checkBadgeForRanking(userId) {
@@ -261,9 +264,9 @@ function checkAfterFirstChallenge(userId) {
 }
 
 function _try(userId, achievementId) {
-  const def = unlockAchievement(userId, achievementId);
-  if (!def) return [];
-  return [{ type: 'achievement', ...def }];
+  const res = unlockAchievement(userId, achievementId);
+  if (!res) return [];
+  return [{ type: 'achievement', ...res.def }, ...res.badges];
 }
 
 module.exports = {

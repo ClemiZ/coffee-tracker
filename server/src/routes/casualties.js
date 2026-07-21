@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { todayStr, dayBounds } = require('./_helpers');
 
 const router = express.Router();
 
@@ -10,9 +11,7 @@ router.get('/', requireAuth, (req, res) => {
   const globalCount = row?.count || 0;
 
   // Calculate today's caffeine for the requesting user
-  const today = new Date().toISOString().slice(0, 10);
-  const dayStart = new Date(today + 'T00:00:00').getTime();
-  const dayEnd   = new Date(today + 'T23:59:59.999').getTime();
+  const { start: dayStart, end: dayEnd } = dayBounds(todayStr());
   const todayCaf = db.prepare(
     'SELECT COALESCE(SUM(caffeine_mg),0) as total FROM coffee_entries WHERE user_id = ? AND logged_at BETWEEN ? AND ?'
   ).get(req.user.id, dayStart, dayEnd).total;

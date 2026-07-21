@@ -8,6 +8,8 @@ const { requireAuth } = require('../middleware/auth');
 const router = express.Router();
 
 const USER_COLS = 'id, email, username, avatar, featured_badges, created_at';
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const USERNAME_RE = /^[a-zA-Z0-9_-]{2,20}$/;
 
 function parseUser(u) {
   if (!u) return u;
@@ -21,8 +23,9 @@ function makeToken(user) {
 router.post('/register', (req, res) => {
   const { email, username, password } = req.body;
   if (!email || !username || !password) return res.status(400).json({ error: 'Missing fields' });
-  if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
-  if (!/^[a-zA-Z0-9_-]{2,20}$/.test(username)) return res.status(400).json({ error: 'Username must be 2-20 alphanumeric characters' });
+  if (typeof password !== 'string' || password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  if (typeof username !== 'string' || !USERNAME_RE.test(username)) return res.status(400).json({ error: 'Username must be 2-20 alphanumeric characters' });
+  if (typeof email !== 'string' || !EMAIL_RE.test(email.trim())) return res.status(400).json({ error: 'Invalid email' });
 
   const emailLower = email.toLowerCase().trim();
   const existing = db.prepare('SELECT id FROM users WHERE email = ? OR username = ?').get(emailLower, username);
@@ -40,7 +43,7 @@ router.post('/register', (req, res) => {
 
 router.post('/login', (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
+  if (!email || !password || typeof email !== 'string') return res.status(400).json({ error: 'Missing fields' });
 
   const row = db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim());
   if (!row || !bcrypt.compareSync(password, row.password_hash)) {
@@ -58,11 +61,12 @@ router.get('/me', requireAuth, (req, res) => {
 
 router.patch('/me', requireAuth, (req, res) => {
   const { username, avatar, featured_badges } = req.body;
-  if (username && !/^[a-zA-Z0-9_-]{2,20}$/.test(username)) {
+  if (username && !USERNAME_RE.test(username)) {
     return res.status(400).json({ error: 'Invalid username' });
   }
   if (featured_badges !== undefined) {
-    if (!Array.isArray(featured_badges) || featured_badges.length > 3) {
+    if (!Array.isArray(featured_badges) || featured_badges.length > 3 ||
+        !featured_badges.every(b => typeof b === 'string' && b.length > 0 && !b.includes(','))) {
       return res.status(400).json({ error: 'featured_badges must be an array of up to 3 badge IDs' });
     }
     db.prepare('UPDATE users SET featured_badges = ? WHERE id = ?').run(featured_badges.join(','), req.user.id);

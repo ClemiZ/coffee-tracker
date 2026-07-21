@@ -4,10 +4,9 @@ const db = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { COFFEES } = require('../data/coffees');
 const { checkAfterCoffeeLog } = require('../achievements');
+const { dateStr, dayBounds, DATE_RE } = require('./_helpers');
 
 const router = express.Router();
-
-function dateStr(ts) { return new Date(ts).toISOString().slice(0, 10); }
 
 router.get('/', (req, res) => {
   res.json(COFFEES);
@@ -17,13 +16,15 @@ router.get('/entries', requireAuth, (req, res) => {
   const { date, days } = req.query;
   let rows;
   if (date) {
-    const start = new Date(date + 'T00:00:00').getTime();
-    const end   = new Date(date + 'T23:59:59.999').getTime();
+    if (!DATE_RE.test(date)) return res.status(400).json({ error: 'Invalid date (expected YYYY-MM-DD)' });
+    const { start, end } = dayBounds(date);
     rows = db.prepare(
       'SELECT * FROM coffee_entries WHERE user_id = ? AND logged_at BETWEEN ? AND ? ORDER BY logged_at DESC'
     ).all(req.user.id, start, end);
   } else if (days) {
-    const cutoff = Date.now() - parseInt(days) * 86400000;
+    const n = parseInt(days, 10);
+    if (!Number.isInteger(n) || n <= 0) return res.status(400).json({ error: 'Invalid days parameter' });
+    const cutoff = Date.now() - n * 86400000;
     rows = db.prepare(
       'SELECT * FROM coffee_entries WHERE user_id = ? AND logged_at >= ? ORDER BY logged_at DESC'
     ).all(req.user.id, cutoff);
@@ -39,6 +40,9 @@ router.post('/entries', requireAuth, (req, res) => {
   const { coffeeId, timestamp } = req.body;
   const coffee = COFFEES.find(c => c.id === coffeeId);
   if (!coffee) return res.status(400).json({ error: 'Unknown coffee type' });
+  if (timestamp !== undefined && (typeof timestamp !== 'number' || !Number.isFinite(timestamp))) {
+    return res.status(400).json({ error: 'Invalid timestamp' });
+  }
 
   const id = randomUUID();
   const logged_at = timestamp || Date.now();

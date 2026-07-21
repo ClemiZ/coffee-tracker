@@ -23,8 +23,8 @@ export function Auth() {
       const data = await api.post<{ token: string; user: User }>(`/auth/${mode}`, body);
       setAuth(data.user, data.token);
       navigate('/');
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setLoading(false);
     }
@@ -38,24 +38,24 @@ export function Auth() {
         <p className="auth-sub">{mode === 'login' ? 'Sign in to continue' : 'Create your account'}</p>
 
         <div className="auth-tabs">
-          <button className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>Sign In</button>
-          <button className={mode === 'register' ? 'active' : ''} onClick={() => setMode('register')}>Register</button>
+          <button type="button" className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>Sign In</button>
+          <button type="button" className={mode === 'register' ? 'active' : ''} onClick={() => setMode('register')}>Register</button>
         </div>
 
         <form onSubmit={submit} className="auth-form">
           <div className="field">
-            <label>Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="you@example.com" />
+            <label htmlFor="auth-email">Email</label>
+            <input id="auth-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="you@example.com" />
           </div>
           {mode === 'register' && (
             <div className="field">
-              <label>Username</label>
-              <input value={username} onChange={e => setUsername(e.target.value)} required placeholder="coffeeaddict" minLength={2} maxLength={20} />
+              <label htmlFor="auth-username">Username</label>
+              <input id="auth-username" value={username} onChange={e => setUsername(e.target.value)} required placeholder="coffeeaddict" minLength={2} maxLength={20} />
             </div>
           )}
           <div className="field">
-            <label>Password</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" minLength={6} />
+            <label htmlFor="auth-password">Password</label>
+            <input id="auth-password" type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" minLength={6} />
           </div>
           {error && <div className="auth-error">{error}</div>}
           <button type="submit" className="auth-submit" disabled={loading}>

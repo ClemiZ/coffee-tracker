@@ -34,12 +34,12 @@ export function Profile() {
       setFeaturedBadges(updated.featured_badges ?? []);
       setEditMode(false);
     },
-    onError: (e: any) => setError(e.message),
+    onError: (e: Error) => setError(e.message),
   });
 
   function handleSave() {
     setError('');
-    const body: any = {};
+    const body: { username?: string; avatar?: string; featured_badges?: string[] } = {};
     if (newUsername !== user?.username) body.username = newUsername;
     if (selectedAvatar !== user?.avatar) body.avatar = selectedAvatar;
     const currentFeatured = user?.featured_badges ?? [];
