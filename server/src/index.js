@@ -13,6 +13,10 @@ const app = express();
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
+// Lightweight liveness probe for the platform health check. Must not touch the
+// DB or auth so a green check means "the process is up and serving".
+app.get('/health', (req, res) => res.json({ ok: true }));
+
 // Routes
 app.use('/api/auth',        require('./routes/auth'));
 app.use('/api/coffees',     require('./routes/coffees'));
