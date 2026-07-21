@@ -210,12 +210,12 @@ main { max-width: 960px; margin: 0 auto; padding: 24px 16px 40px; display: flex;
 .auth-form { display: flex; flex-direction: column; gap: 14px; text-align: left; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field label { font-size: 0.75rem; font-weight: 600; color: var(--text-sec); }
-.field input, .field select {
+.field input, .field select, .search-input {
   padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px;
   background: var(--surface2); color: var(--text-primary); font-size: 0.88rem;
   outline: none; transition: border-color 0.15s;
 }
-.field input:focus, .field select:focus { border-color: var(--accent); }
+.field input:focus, .field select:focus, .search-input:focus { border-color: var(--accent); }
 .auth-error { background: #FEE; border: 1px solid #F0BCBC; border-radius: 8px; padding: 10px; font-size: 0.8rem; color: #C0392B; text-align: center; }
 .auth-submit {
   width: 100%; padding: 12px; background: var(--accent); color: white;
@@ -338,8 +338,9 @@ main { max-width: 960px; margin: 0 auto; padding: 24px 16px 40px; display: flex;
 
 /* ── Compare page ────────────────────────────────────────────────────────── */
 .search-row { display: flex; gap: 10px; }
-.search-input { flex: 1; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; background: var(--surface2); color: var(--text-primary); font-size: 0.88rem; outline: none; transition: border-color 0.15s; }
-.search-input:focus { border-color: var(--accent); }
+/* Shared input styling lives with `.field input` (Auth page); only the layout
+   differs here. */
+.search-input { flex: 1; }
 .error-card { color: #C0392B; font-size: 0.82rem; }
 .compare-header { display: flex; align-items: center; justify-content: space-around; margin-bottom: 20px; text-align: center; }
 .compare-user { display: flex; flex-direction: column; align-items: center; gap: 4px; }
@@ -419,6 +420,7 @@ main { max-width: 960px; margin: 0 auto; padding: 24px 16px 40px; display: flex;
 .ut-body { flex: 1; }
 .ut-type { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); }
 .ut-name { font-size: 0.9rem; font-weight: 700; margin-top: 2px; }
+.ut-desc { font-size: 0.72rem; color: var(--text-sec); margin-top: 2px; }
 
 /* ── Dark mode toggle ────────────────────────────────────────────────────── */
 .dark-toggle {
@@ -437,4 +439,3 @@ main { max-width: 960px; margin: 0 auto; padding: 24px 16px 40px; display: flex;
   flex-shrink: 0; transition: all 0.15s;
 }
 .dark-toggle-inline:hover { border-color: var(--accent); transform: scale(1.1); }
-.ut-desc { font-size: 0.72rem; color: var(--text-sec); margin-top: 2px; }

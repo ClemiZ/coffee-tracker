@@ -109,6 +109,11 @@ db.exec(`
   );
 `);
 
-try { db.exec("ALTER TABLE users ADD COLUMN featured_badges TEXT NOT NULL DEFAULT ''"); } catch {}
+// Idempotent migration: add featured_badges only if it's missing, so we don't
+// swallow (and hide) unexpected ALTER TABLE errors with a blanket catch.
+const userColumns = db.prepare('PRAGMA table_info(users)').all();
+if (!userColumns.some(c => c.name === 'featured_badges')) {
+  db.exec("ALTER TABLE users ADD COLUMN featured_badges TEXT NOT NULL DEFAULT ''");
+}
 
 module.exports = db;

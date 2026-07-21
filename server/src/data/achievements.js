@@ -228,7 +228,7 @@ const ACHIEVEMENTS = [
   // ── Secret easter eggs ─────────────────────────────────────────────────────
   {
     id: 'decaf_spy',
-    name: '???',
+    name: 'Decaf Spy',
     description: 'A beverage of deception, followed by the real thing',
     icon: '🕵️',
     secret: true,
@@ -236,7 +236,7 @@ const ACHIEVEMENTS = [
   },
   {
     id: 'coffee_loop',
-    name: '???',
+    name: 'Coffee Loop',
     description: 'Same pattern, day after day after day...',
     icon: '🔄',
     secret: true,
@@ -244,7 +244,7 @@ const ACHIEVEMENTS = [
   },
   {
     id: 'monochrome',
-    name: '???',
+    name: 'Monochrome',
     description: 'One type. Only ever one type. Always.',
     icon: '🎯',
     secret: true,

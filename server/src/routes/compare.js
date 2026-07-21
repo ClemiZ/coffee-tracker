@@ -3,10 +3,9 @@ const db = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { checkAfterCompare } = require('../achievements');
 const { COFFEES } = require('../data/coffees');
+const { dateStr } = require('./_helpers');
 
 const router = express.Router();
-
-function dateStr(ts) { return new Date(ts).toISOString().slice(0, 10); }
 
 function buildUserStats(userId) {
   const allEntries = db.prepare(

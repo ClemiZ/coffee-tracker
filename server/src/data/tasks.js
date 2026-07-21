@@ -68,7 +68,7 @@ const TASK_POOL = [
     check: 'loggedBefore8am',
   },
   {
-    id: 'log_exactly_two',
+    id: 'exactly_two_cups',
     label: 'Log exactly 2 coffees today',
     icon: '✌️',
     check: 'exactlyTwoCups',

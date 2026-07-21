@@ -6,77 +6,48 @@ const {
   checkAfterChallengeWin,
   checkAfterFirstChallenge,
 } = require('../achievements');
+const { todayStr, DATE_RE } = require('./_helpers');
 
 const router = express.Router();
 
-function todayStr() { return new Date().toISOString().slice(0, 10); }
+const VALID_METRICS = ['total_cups', 'caffeine', 'espresso_cups', 'unique_types'];
 
-function getChallengeProgress(challengeId, metric, startDate, participants) {
+// Aggregate progress toward a metric for one or more users since startDate.
+// Pass a single-element array for an individual participant's progress.
+function computeProgress(metric, startDate, userIds) {
+  if (!userIds || userIds.length === 0) return 0;
   const start = new Date(startDate + 'T00:00:00').getTime();
-  const userIds = participants.map(p => p.user_id);
-  if (userIds.length === 0) return 0;
-
   const placeholders = userIds.map(() => '?').join(',');
+  const scope = `user_id IN (${placeholders}) AND`;
+
   switch (metric) {
-    case 'espresso_cups': {
-      const r = db.prepare(
-        `SELECT COUNT(*) as cnt FROM coffee_entries WHERE user_id IN (${placeholders}) AND coffee_id IN ('espresso','espresso_mac') AND logged_at >= ?`
-      ).get(...userIds, start);
-      return r.cnt;
-    }
-    case 'caffeine': {
-      const r = db.prepare(
-        `SELECT COALESCE(SUM(caffeine_mg),0) as total FROM coffee_entries WHERE user_id IN (${placeholders}) AND logged_at >= ?`
-      ).get(...userIds, start);
-      return r.total;
-    }
-    case 'unique_types': {
-      const r = db.prepare(
-        `SELECT COUNT(DISTINCT coffee_id) as cnt FROM coffee_entries WHERE user_id IN (${placeholders}) AND logged_at >= ?`
-      ).get(...userIds, start);
-      return r.cnt;
-    }
-    case 'total_cups': {
-      const r = db.prepare(
-        `SELECT COUNT(*) as cnt FROM coffee_entries WHERE user_id IN (${placeholders}) AND logged_at >= ?`
-      ).get(...userIds, start);
-      return r.cnt;
-    }
+    case 'espresso_cups':
+      return db.prepare(
+        `SELECT COUNT(*) as v FROM coffee_entries WHERE ${scope} coffee_id IN ('espresso','espresso_mac') AND logged_at >= ?`
+      ).get(...userIds, start).v;
+    case 'caffeine':
+      return db.prepare(
+        `SELECT COALESCE(SUM(caffeine_mg),0) as v FROM coffee_entries WHERE ${scope} logged_at >= ?`
+      ).get(...userIds, start).v;
+    case 'unique_types':
+      return db.prepare(
+        `SELECT COUNT(DISTINCT coffee_id) as v FROM coffee_entries WHERE ${scope} logged_at >= ?`
+      ).get(...userIds, start).v;
+    case 'total_cups':
+      return db.prepare(
+        `SELECT COUNT(*) as v FROM coffee_entries WHERE ${scope} logged_at >= ?`
+      ).get(...userIds, start).v;
     default:
       return 0;
   }
 }
 
-function getUserChallengeProgress(challengeId, metric, startDate, userId) {
-  const start = new Date(startDate + 'T00:00:00').getTime();
-  switch (metric) {
-    case 'espresso_cups': {
-      const r = db.prepare(
-        "SELECT COUNT(*) as cnt FROM coffee_entries WHERE user_id = ? AND coffee_id IN ('espresso','espresso_mac') AND logged_at >= ?"
-      ).get(userId, start);
-      return r.cnt;
-    }
-    case 'caffeine': {
-      const r = db.prepare(
-        'SELECT COALESCE(SUM(caffeine_mg),0) as total FROM coffee_entries WHERE user_id = ? AND logged_at >= ?'
-      ).get(userId, start);
-      return r.total;
-    }
-    case 'unique_types': {
-      const r = db.prepare(
-        'SELECT COUNT(DISTINCT coffee_id) as cnt FROM coffee_entries WHERE user_id = ? AND logged_at >= ?'
-      ).get(userId, start);
-      return r.cnt;
-    }
-    case 'total_cups': {
-      const r = db.prepare(
-        'SELECT COUNT(*) as cnt FROM coffee_entries WHERE user_id = ? AND logged_at >= ?'
-      ).get(userId, start);
-      return r.cnt;
-    }
-    default:
-      return 0;
-  }
+function communityProgressFor(challenge, participants) {
+  return computeProgress(challenge.metric, challenge.start_date, participants.map(p => p.user_id));
+}
+
+function userProgressFor(challenge, userId) {
+  return computeProgress(challenge.metric, challenge.start_date, [userId]);
 }
 
 function seedCommunityChallenges() {
@@ -115,17 +86,14 @@ router.get('/', requireAuth, (req, res) => {
     const participants = db.prepare(
       'SELECT cp.*, u.username FROM challenge_participants cp JOIN users u ON u.id = cp.user_id WHERE cp.challenge_id = ?'
     ).all(c.id);
-    const communityProgress = getChallengeProgress(c.id, c.metric, c.start_date, participants);
-    const myProgress = participants.some(p => p.user_id === req.user.id)
-      ? getUserChallengeProgress(c.id, c.metric, c.start_date, req.user.id)
-      : null;
+    const joined = participants.some(p => p.user_id === req.user.id);
 
     return {
       ...c,
       participants_count: participants.length,
-      community_progress: communityProgress,
-      my_progress: myProgress,
-      joined: participants.some(p => p.user_id === req.user.id),
+      community_progress: communityProgressFor(c, participants),
+      my_progress: joined ? userProgressFor(c, req.user.id) : null,
+      joined,
     };
   });
 
@@ -135,15 +103,18 @@ router.get('/', requireAuth, (req, res) => {
 router.post('/', requireAuth, (req, res) => {
   const { name, description, metric, target, endDate } = req.body;
   if (!name || !metric || !target || !endDate) return res.status(400).json({ error: 'Missing fields' });
+  if (typeof name !== 'string' || name.length > 100) return res.status(400).json({ error: 'Invalid name' });
+  if (!VALID_METRICS.includes(metric)) return res.status(400).json({ error: 'Invalid metric' });
 
-  const validMetrics = ['total_cups', 'caffeine', 'espresso_cups', 'unique_types'];
-  if (!validMetrics.includes(metric)) return res.status(400).json({ error: 'Invalid metric' });
+  const targetNum = Number(target);
+  if (!Number.isInteger(targetNum) || targetNum <= 0) return res.status(400).json({ error: 'Target must be a positive integer' });
+  if (!DATE_RE.test(endDate)) return res.status(400).json({ error: 'Invalid end date (expected YYYY-MM-DD)' });
 
   const id = randomUUID();
   const today = todayStr();
   db.prepare(
     'INSERT INTO challenges (id, type, creator_id, name, description, metric, target, start_date, end_date, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).run(id, 'personal', req.user.id, name, description || '', metric, target, today, endDate, 'active');
+  ).run(id, 'personal', req.user.id, name, description || '', metric, targetNum, today, endDate, 'active');
 
   db.prepare(
     'INSERT INTO challenge_participants (id, challenge_id, user_id, joined_at) VALUES (?, ?, ?, ?)'
@@ -175,7 +146,7 @@ router.get('/:id', requireAuth, (req, res) => {
   const participants = db.prepare(
     'SELECT cp.*, u.username FROM challenge_participants cp JOIN users u ON u.id = cp.user_id WHERE cp.challenge_id = ?'
   ).all(challenge.id);
-  const communityProgress = getChallengeProgress(challenge.id, challenge.metric, challenge.start_date, participants);
+  const communityProgress = communityProgressFor(challenge, participants);
 
   const now = new Date();
   const endDate = new Date(challenge.end_date + 'T23:59:59');
@@ -189,7 +160,7 @@ router.get('/:id', requireAuth, (req, res) => {
   } else if (now > endDate && challenge.status === 'active') {
     db.prepare("UPDATE challenges SET status = 'completed' WHERE id = ?").run(challenge.id);
     if (challenge.type === 'personal') {
-      const myProgress = getUserChallengeProgress(challenge.id, challenge.metric, challenge.start_date, req.user.id);
+      const myProgress = userProgressFor(challenge, req.user.id);
       if (myProgress >= challenge.target) {
         db.prepare('UPDATE challenge_participants SET completed = 1 WHERE challenge_id = ? AND user_id = ?').run(challenge.id, req.user.id);
         checkAfterChallengeWin(req.user.id);
@@ -202,10 +173,10 @@ router.get('/:id', requireAuth, (req, res) => {
     participants_count: participants.length,
     participants: participants.map(p => ({
       username: p.username,
-      progress: getUserChallengeProgress(challenge.id, challenge.metric, challenge.start_date, p.user_id),
+      progress: userProgressFor(challenge, p.user_id),
     })),
     community_progress: communityProgress,
-    my_progress: getUserChallengeProgress(challenge.id, challenge.metric, challenge.start_date, req.user.id),
+    my_progress: userProgressFor(challenge, req.user.id),
     joined: participants.some(p => p.user_id === req.user.id),
   });
 });

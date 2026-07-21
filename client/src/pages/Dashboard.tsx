@@ -71,12 +71,21 @@ export function Dashboard() {
 
   useEffect(() => {
     if (stats) applyTheme(stats.today_caffeine);
-  }, [stats?.today_caffeine]);
+  }, [stats?.today_caffeine, applyTheme]);
 
   useEffect(() => {
     if (!stats) return;
     renderCharts();
-  }, [stats, levelIndex]);
+    // renderCharts also reads `entries` (hour chart), so re-run when they change.
+  }, [stats, levelIndex, entries]);
+
+  // Destroy any live charts when the page unmounts to avoid leaking canvases.
+  useEffect(() => {
+    const charts = chartsRef.current;
+    return () => {
+      Object.values(charts).forEach(c => c.destroy());
+    };
+  }, []);
 
   function renderCharts() {
     if (!stats) return;

@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { UnlockToast } from '../components/UnlockToast';
 import { useState } from 'react';
-import type { GoalsResponse, UnlockNotification } from '../types';
+import type { GoalsResponse, Streak, Task, UnlockNotification } from '../types';
 
 export function Goals() {
   const qc = useQueryClient();
@@ -15,7 +15,7 @@ export function Goals() {
   });
 
   const completeMutation = useMutation({
-    mutationFn: () => api.post<{ tasks: any[]; allDone: boolean; unlocked: UnlockNotification[]; streak: any }>('/goals/complete'),
+    mutationFn: () => api.post<{ tasks: Task[]; allDone: boolean; unlocked: UnlockNotification[]; streak: Streak }>('/goals/complete'),
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ['goals'] });
       qc.invalidateQueries({ queryKey: ['streaks'] });
@@ -28,6 +28,7 @@ export function Goals() {
 
   const allDone = data.tasks.every(t => t.completed);
   const doneCount = data.tasks.filter(t => t.completed).length;
+  const progressPct = data.tasks.length ? (doneCount / data.tasks.length) * 100 : 0;
 
   return (
     <div className="page">
@@ -58,7 +59,7 @@ export function Goals() {
         <div className="card">
           <div className="section-label">Today's Tasks — {doneCount}/{data.tasks.length}</div>
           <div className="progress-bar-wrap">
-            <div className="progress-bar" style={{ width: `${(doneCount / data.tasks.length) * 100}%` }} />
+            <div className="progress-bar" style={{ width: `${progressPct}%` }} />
           </div>
           <div className="task-list">
             {data.tasks.map(task => (

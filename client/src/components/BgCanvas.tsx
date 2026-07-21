@@ -4,20 +4,72 @@ interface Props {
   level: number;
 }
 
+// A single animated particle. Only a subset of the motion fields is meaningful
+// for any given level; the rest stay at 0 (created via makeParticle) and are
+// never read for that level, so every field is a definite number.
+interface Particle {
+  lv: number;
+  x: number;
+  y: number;
+  r: number;
+  alpha: number;
+  vx: number;
+  vy: number;
+  hue: number;
+  ph: number;
+  phv: number;
+  rot: number;
+  rotv: number;
+  grav: number;
+  flk: number;
+  life: number;
+}
+
+function makeParticle(lv: number): Particle {
+  return {
+    lv, x: 0, y: 0, r: 0, alpha: 0, vx: 0, vy: 0, hue: 0,
+    ph: 0, phv: 0, rot: 0, rotv: 0, grav: 0, flk: 0, life: 0,
+  };
+}
+
+interface PulseRing {
+  x: number;
+  y: number;
+  r: number;
+  alpha: number;
+  spd: number;
+}
+
+interface Bolt {
+  life: number;
+  alpha: number;
+  w: number;
+  segs: [number, number, number, number][];
+}
+
+interface CanvasState {
+  frame: number;
+  level: number;
+  particles: Particle[];
+  pulseRings: PulseRing[];
+  bolts: Bolt[];
+  timers: ReturnType<typeof setTimeout>[];
+  rafId: number;
+  spawnFn: ((init?: boolean) => void) | null;
+}
+
 // Lifted from the original index.html canvas animation
 export function BgCanvas({ level }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const stateRef = useRef({
+  const stateRef = useRef<CanvasState>({
     frame: 0,
     level: -1,
-    particles: [] as any[],
-    pulseRings: [] as any[],
-    bolts: [] as any[],
-    matrixCols: [] as any[],
-    timers: [] as any[],
-    anims: [] as any[],
+    particles: [],
+    pulseRings: [],
+    bolts: [],
+    timers: [],
     rafId: 0,
-    spawnFn: null as null | ((init?: boolean) => void),
+    spawnFn: null,
   });
 
   useEffect(() => {
@@ -38,7 +90,7 @@ export function BgCanvas({ level }: Props) {
     const H = () => canvas!.height;
 
     function spawn(init = false) {
-      const p: any = { lv: s.level };
+      const p = makeParticle(s.level);
       switch (s.level) {
         case 0: Object.assign(p, { x: rnd(0,W()), y: init ? rnd(0,H()) : H()+80, r: rnd(50,150), vx: rnd(-0.25,0.25), vy: rnd(-0.15,-0.06), alpha: rnd(0.012,0.04), hue: rnd(185,215), ph: rnd(0,6.28) }); break;
         case 1: Object.assign(p, { x: rnd(0,W()), y: init ? rnd(0,H()) : H()+15, r: rnd(4,9), vy: rnd(-0.5,-0.2), alpha: rnd(0.04,0.1), ph: rnd(0,6.28), phv: rnd(0.012,0.025), life: 1 }); break;
@@ -84,7 +136,7 @@ export function BgCanvas({ level }: Props) {
         const bx = rnd(W()*0.1, W()*0.9), by = rnd(H()*0.1, H()*0.9);
         for (let i = 0; i < 8+Math.floor(rnd(0,10)); i++) {
           const ang = (i/(8+Math.floor(rnd(0,10))))*Math.PI*2+rnd(-0.4,0.4), spd = 2+rnd(0,7);
-          s.particles.push({ lv: 7, x: bx, y: by, r: 2+rnd(0,5), vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd, alpha: 0.7+rnd(0,0.3), life: 1 });
+          s.particles.push({ ...makeParticle(7), x: bx, y: by, r: 2+rnd(0,5), vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd, alpha: 0.7+rnd(0,0.3), life: 1 });
         }
       }
 
@@ -113,11 +165,11 @@ export function BgCanvas({ level }: Props) {
     function drawSparkles() { s.particles.forEach(p => { ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot); ctx.shadowColor=`rgba(255,190,0,${p.alpha*0.7})`; ctx.shadowBlur=8; ctx.fillStyle=`rgba(196,144,8,${p.alpha})`; const sz=p.r; ctx.beginPath(); for(let i=0;i<8;i++){const a=(i/8)*Math.PI*2,r2=i%2===0?sz*2.2:sz*0.9; i===0?ctx.moveTo(Math.cos(a)*r2,Math.sin(a)*r2):ctx.lineTo(Math.cos(a)*r2,Math.sin(a)*r2);} ctx.closePath(); ctx.fill(); ctx.restore(); }); }
     function drawPulse() { const pulse=0.5+Math.sin(s.frame*0.07)*0.5; const bg=ctx.createRadialGradient(W()/2,H()/2,0,W()/2,H()/2,Math.max(W(),H())*0.55); bg.addColorStop(0,`rgba(192,57,43,${pulse*0.06})`); bg.addColorStop(1,'rgba(192,57,43,0)'); ctx.fillStyle=bg; ctx.fillRect(0,0,W(),H()); s.pulseRings.forEach(r => { ctx.save(); ctx.beginPath(); ctx.arc(r.x,r.y,r.r,0,6.28); ctx.strokeStyle=`rgba(192,57,43,${r.alpha})`; ctx.lineWidth=2; ctx.shadowColor=`rgba(255,60,60,${r.alpha*0.6})`; ctx.shadowBlur=12; ctx.stroke(); ctx.restore(); }); }
     function drawEmbers() { s.particles.forEach(p => { ctx.save(); ctx.shadowColor=`hsla(${p.hue},100%,60%,${p.alpha*0.5})`; ctx.shadowBlur=10; const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*3); g.addColorStop(0,`hsla(${Math.min(60,p.hue+25)},100%,92%,${p.alpha})`); g.addColorStop(0.35,`hsla(${p.hue},100%,62%,${p.alpha*0.8})`); g.addColorStop(1,`hsla(${Math.max(0,p.hue-5)},100%,38%,0)`); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(p.x,p.y,p.r*3,0,6.28); ctx.fill(); ctx.restore(); }); }
-    function drawLightning() { const mx=s.bolts.reduce((m,b)=>Math.max(m,b.life>4?b.alpha:0),0); if(mx>0){ctx.fillStyle=`rgba(170,90,255,${mx*0.05})`; ctx.fillRect(0,0,W(),H());} s.bolts.forEach(b=>{ctx.save(); ctx.strokeStyle=`rgba(200,120,255,${b.alpha*0.35})`; ctx.lineWidth=b.w*7; ctx.shadowColor=`rgba(180,80,255,${b.alpha})`; ctx.shadowBlur=22; b.segs.forEach(([x1,y1,x2,y2]:number[])=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}); ctx.strokeStyle=`rgba(228,190,255,${b.alpha*0.95})`; ctx.lineWidth=b.w; ctx.shadowBlur=5; b.segs.forEach(([x1,y1,x2,y2]:number[])=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}); ctx.restore();}); }
+    function drawLightning() { const mx=s.bolts.reduce((m,b)=>Math.max(m,b.life>4?b.alpha:0),0); if(mx>0){ctx.fillStyle=`rgba(170,90,255,${mx*0.05})`; ctx.fillRect(0,0,W(),H());} s.bolts.forEach(b=>{ctx.save(); ctx.strokeStyle=`rgba(200,120,255,${b.alpha*0.35})`; ctx.lineWidth=b.w*7; ctx.shadowColor=`rgba(180,80,255,${b.alpha})`; ctx.shadowBlur=22; b.segs.forEach(([x1,y1,x2,y2])=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}); ctx.strokeStyle=`rgba(228,190,255,${b.alpha*0.95})`; ctx.lineWidth=b.w; ctx.shadowBlur=5; b.segs.forEach(([x1,y1,x2,y2])=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}); ctx.restore();}); }
     function drawWired() { if(Math.random()<0.06){ctx.fillStyle=`rgba(0,240,255,${rnd(0.02,0.07)})`; ctx.fillRect(0,0,W(),H());} if(Math.random()<0.14){for(let i=0;i<1+Math.floor(Math.random()*2);i++){const iy=rnd(0,H()),iw=W()*rnd(0.2,1.0); ctx.fillStyle=`rgba(0,240,255,${rnd(0.05,0.14)})`; ctx.fillRect(0,iy,iw,1+Math.random()*2);}} s.particles.forEach(p=>{ctx.save(); ctx.shadowColor=`rgba(0,240,255,${p.alpha*0.9})`; ctx.shadowBlur=10; const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*4); g.addColorStop(0,`rgba(220,255,255,${p.alpha})`); g.addColorStop(0.35,`rgba(0,240,255,${p.alpha*0.8})`); g.addColorStop(1,'rgba(0,160,200,0)'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(p.x,p.y,p.r*4,0,6.28); ctx.fill(); ctx.restore();}); }
     function drawToxic() { const pulse=0.5+Math.sin(s.frame*0.19)*0.5; ctx.fillStyle=`rgba(255,0,144,${0.02+pulse*0.04})`; ctx.fillRect(0,0,W(),H()); s.particles.forEach(p=>{ctx.save(); ctx.shadowColor=`rgba(255,0,144,${p.alpha})`; ctx.shadowBlur=18; const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*3.5); g.addColorStop(0,`rgba(255,200,240,${p.alpha})`); g.addColorStop(0.25,`rgba(255,0,144,${p.alpha*0.85})`); g.addColorStop(1,'rgba(180,0,80,0)'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(p.x,p.y,p.r*3.5,0,6.28); ctx.fill(); ctx.restore();}); }
     function drawInferno() { const bg=ctx.createLinearGradient(0,H()*0.55,0,H()); bg.addColorStop(0,'rgba(255,90,0,0)'); bg.addColorStop(0.65,'rgba(255,60,0,0.07)'); bg.addColorStop(1,'rgba(200,20,0,0.14)'); ctx.fillStyle=bg; ctx.fillRect(0,0,W(),H()); s.particles.forEach(p=>{ctx.save(); ctx.shadowColor=`hsla(${p.hue},100%,50%,${p.alpha*0.55})`; ctx.shadowBlur=18; const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*4); g.addColorStop(0,`hsla(60,100%,96%,${p.alpha})`); g.addColorStop(0.2,`hsla(45,100%,76%,${p.alpha*0.9})`); g.addColorStop(0.55,`hsla(${p.hue},100%,54%,${p.alpha*0.55})`); g.addColorStop(1,`hsla(${Math.max(0,p.hue-5)},100%,30%,0)`); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(p.x,p.y,p.r*4,0,6.28); ctx.fill(); ctx.restore();}); }
-    function drawGone() { for(let y=0;y<H();y+=4){ctx.fillStyle='rgba(0,0,0,0.03)'; ctx.fillRect(0,y,W(),1);} s.particles.forEach(p=>{ctx.fillStyle=`rgba(155,155,155,${p.alpha})`; ctx.fillRect(p.x,p.y,p.r,p.r*(0.4+Math.random()*0.6));}); if(Math.random()<0.045){const gy=Math.random()*H(),gh=2+Math.random()*7,gs=(Math.random()-0.5)*45; try{const img=ctx.getImageData(0,gy,W(),gh); ctx.putImageData(img,gs,gy);}catch(_){}} }
+    function drawGone() { for(let y=0;y<H();y+=4){ctx.fillStyle='rgba(0,0,0,0.03)'; ctx.fillRect(0,y,W(),1);} s.particles.forEach(p=>{ctx.fillStyle=`rgba(155,155,155,${p.alpha})`; ctx.fillRect(p.x,p.y,p.r,p.r*(0.4+Math.random()*0.6));}); if(Math.random()<0.045){const gy=Math.random()*H(),gh=2+Math.random()*7,gs=(Math.random()-0.5)*45; try{const img=ctx.getImageData(0,gy,W(),gh); ctx.putImageData(img,gs,gy);}catch{}} }
 
     s.rafId = requestAnimationFrame(loop);
     return () => {
@@ -132,7 +184,7 @@ export function BgCanvas({ level }: Props) {
     s.particles = [];
     s.pulseRings = [];
     s.bolts = [];
-    s.timers.forEach(t => { clearTimeout(t); clearInterval(t); });
+    s.timers.forEach(t => clearTimeout(t));
     s.timers = [];
     s.level = level;
 
@@ -147,22 +199,27 @@ export function BgCanvas({ level }: Props) {
     }
 
     // Heartbeat pulse rings for level 3
-    if (level === 3) {
-      const canvas2 = canvasRef.current;
-      if (canvas2) {
-        const beat = () => {
+    if (level === 3 && canvas) {
+      const beat = () => {
+        if (s.level !== 3) return;
+        s.pulseRings.push({ x: canvas.width / 2, y: canvas.height / 2, r: 10, alpha: 0.65, spd: 2.8 });
+        const t = setTimeout(() => {
           if (s.level !== 3) return;
-          s.pulseRings.push({ x: canvas2.width / 2, y: canvas2.height / 2, r: 10, alpha: 0.65, spd: 2.8 });
-          const t = setTimeout(() => {
-            if (s.level !== 3) return;
-            s.pulseRings.push({ x: canvas2.width / 2, y: canvas2.height / 2, r: 10, alpha: 0.45, spd: 2.2 });
-          }, 150);
-          const t2 = setTimeout(beat, 950);
-          s.timers.push(t, t2);
-        };
-        beat();
-      }
+          s.pulseRings.push({ x: canvas.width / 2, y: canvas.height / 2, r: 10, alpha: 0.45, spd: 2.2 });
+        }, 150);
+        const t2 = setTimeout(beat, 950);
+        s.timers.push(t, t2);
+      };
+      beat();
     }
+
+    // Cancel any pending heartbeat timers when the level changes or the
+    // component unmounts. Without this, the self-rescheduling beat() chain
+    // keeps firing forever after unmount (s.level stays 3).
+    return () => {
+      s.timers.forEach(t => clearTimeout(t));
+      s.timers = [];
+    };
   }, [level]);
 
   return (

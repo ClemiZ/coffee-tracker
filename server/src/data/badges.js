@@ -115,7 +115,7 @@ const BADGES = [
   // ── Secret badges ──────────────────────────────────────────────────────────
   {
     id: 'night_owl_badge',
-    name: '???',
+    name: 'Night Owl',
     description: 'Burn the midnight oil',
     icon: '🦉',
     rarity: 'secret',
@@ -124,7 +124,7 @@ const BADGES = [
   },
   {
     id: 'flatlined',
-    name: '???',
+    name: 'Flatlined',
     description: 'You went where few dare to go',
     icon: '⬛',
     rarity: 'secret',
@@ -133,7 +133,7 @@ const BADGES = [
   },
   {
     id: 'groundhog',
-    name: '???',
+    name: 'Groundhog Day',
     description: 'Same coffee, every day, forever',
     icon: '🔄',
     rarity: 'secret',
