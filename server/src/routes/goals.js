@@ -4,13 +4,13 @@ const { requireAuth } = require('../middleware/auth');
 const { getDailyTasks } = require('../data/tasks');
 const { COFFEES } = require('../data/coffees');
 const { checkAfterGoalsComplete } = require('../achievements');
-const { todayStr, dayBounds } = require('./_helpers');
+const { localTodayStr, localDayBounds, localTimeMs } = require('./_helpers');
 
 const router = express.Router();
 
-function evaluateTask(taskId, userId) {
-  const today = todayStr();
-  const { start: dayStart, end: dayEnd } = dayBounds(today);
+function evaluateTask(taskId, userId, utcOffset) {
+  const today = localTodayStr(utcOffset);
+  const { start: dayStart, end: dayEnd } = localDayBounds(today, utcOffset);
 
   const todayEntries = db.prepare(
     'SELECT coffee_id, caffeine_mg, logged_at FROM coffee_entries WHERE user_id = ? AND logged_at BETWEEN ? AND ?'
@@ -46,12 +46,12 @@ function evaluateTask(taskId, userId) {
       return todayEntries.length > 0 && todayCaffeine < 400;
 
     case 'log_before_10am': {
-      const tenAm = new Date(today + 'T10:00:00').getTime();
+      const tenAm = localTimeMs(today, 10, 0, utcOffset);
       return todayEntries.some(e => e.logged_at < tenAm);
     }
 
     case 'log_after_3pm': {
-      const threePm = new Date(today + 'T15:00:00').getTime();
+      const threePm = localTimeMs(today, 15, 0, utcOffset);
       return todayEntries.some(e => e.logged_at >= threePm);
     }
 
@@ -71,7 +71,7 @@ function evaluateTask(taskId, userId) {
       return todayEntries.length > 0 && todayCaffeine < 200;
 
     case 'log_within_hour_of_waking': {
-      const eightAm = new Date(today + 'T08:00:00').getTime();
+      const eightAm = localTimeMs(today, 8, 0, utcOffset);
       return todayEntries.some(e => e.logged_at < eightAm);
     }
 
@@ -89,12 +89,18 @@ function evaluateTask(taskId, userId) {
   }
 }
 
+function parseUtcOffset(raw) {
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n >= -720 && n <= 840 ? n : null;
+}
+
 // GET /api/goals/today — get today's tasks with current completion state
 router.get('/today', requireAuth, (req, res) => {
-  const today = todayStr();
+  const utcOffset = parseUtcOffset(req.query.utcOffset);
+  const today = localTodayStr(utcOffset);
   const tasks = getDailyTasks(today, req.user.id).map(task => ({
     ...task,
-    completed: evaluateTask(task.id, req.user.id),
+    completed: evaluateTask(task.id, req.user.id, utcOffset),
   }));
 
   const streak = db.prepare('SELECT * FROM user_streaks WHERE user_id = ?').get(req.user.id);
@@ -103,10 +109,11 @@ router.get('/today', requireAuth, (req, res) => {
 
 // POST /api/goals/complete — evaluate all tasks and award streak if all done
 router.post('/complete', requireAuth, (req, res) => {
-  const today = todayStr();
+  const utcOffset = parseUtcOffset(req.query.utcOffset);
+  const today = localTodayStr(utcOffset);
   const tasks = getDailyTasks(today, req.user.id).map(task => ({
     ...task,
-    completed: evaluateTask(task.id, req.user.id),
+    completed: evaluateTask(task.id, req.user.id, utcOffset),
   }));
 
   const allDone = tasks.every(t => t.completed);

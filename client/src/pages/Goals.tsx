@@ -8,14 +8,16 @@ export function Goals() {
   const qc = useQueryClient();
   const [notifications, setNotifications] = useState<UnlockNotification[]>([]);
 
+  const utcOffset = -new Date().getTimezoneOffset();
+
   const { data, isLoading } = useQuery<GoalsResponse>({
     queryKey: ['goals'],
-    queryFn: () => api.get('/goals/today'),
+    queryFn: () => api.get(`/goals/today?utcOffset=${utcOffset}`),
     refetchInterval: 30000,
   });
 
   const completeMutation = useMutation({
-    mutationFn: () => api.post<{ tasks: Task[]; allDone: boolean; unlocked: UnlockNotification[]; streak: Streak }>('/goals/complete'),
+    mutationFn: () => api.post<{ tasks: Task[]; allDone: boolean; unlocked: UnlockNotification[]; streak: Streak }>(`/goals/complete?utcOffset=${utcOffset}`),
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ['goals'] });
       qc.invalidateQueries({ queryKey: ['streaks'] });
